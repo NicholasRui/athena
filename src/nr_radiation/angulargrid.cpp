@@ -77,9 +77,8 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
     if (ndim > 1) {
       Real deltamu = 2.0 / (2 * nmu - 1);
       mu2tmp(0) = 1.0 / (3.0 * (2 * nmu - 1));
-      for (int i=1; i<nmu; i++) {
+      for (int i=1; i<nmu; i++)
         mu2tmp(i) = mu2tmp(i-1) + deltamu;
-      }
 
       Real w2 = 4.0 * mu2tmp(0);
       Real wsum2 = std::sqrt(w2);
@@ -143,15 +142,13 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
         // Solve for and assign weights for each Permutation family
         MatrixMult(nmu-1,nmu-1,pinv,wtmp,wpf);
 
-        for (int l=0; l<noct; ++l) {
-          for (int i=0; i<nang_per_oct; ++i) {
+        for (int l=0; l<noct; ++l)
+          for (int i=0; i<nang_per_oct; ++i)
               wmu(l*nang_per_oct+i) = wpf(plab(i));
-          } // end nang
-        } // end noct
+
       } else {
-        for (int l=0; l<noct; ++l) {
-            wmu(l) = 1.0;
-        }
+        for (int l=0; l<noct; ++l)
+          wmu(l) = 1.0;
       }
     }
 
@@ -161,14 +158,13 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
       wtmp1d.NewAthenaArray(2*nmu);
 
       Gauleg(2*nmu, -1.0, 1.0, mutmp1d, wtmp1d);
-      for (int i=0; i<2*nmu; ++i) {
+      for (int i=0; i<2*nmu; ++i)
         wmu(i) = 0.5 * wtmp1d(i);
-      }
-      for (int n1=0; n1<n1z; ++n1) {
-        for (int i=0; i<2*nmu; ++i) {
+
+      for (int n1=0; n1<n1z; ++n1)
+        for (int i=0; i<2*nmu; ++i)
           mu(0,0,0,n1,i)=mutmp1d(i);
-        }
-      }
+      
     } else if (ndim == 2) {
       // for spherical coordinate system, it should be r-theta-phi
       for (int n2=0; n2<n2z; ++n2) {
@@ -194,9 +190,9 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
         }
       }
       // for the angular weight
-      for (int i=0; i<noct * nang_per_oct; ++i) {
-          wmu(i) *= 0.25;
-      }
+      for (int i=0; i<noct * nang_per_oct; ++i)
+        wmu(i) *= 0.25;
+
     } else if (ndim == 3) {
       for (int n3=0; n3<n3z; ++n3) {
         for (int n2=0; n2<n2z; ++n2) {
@@ -231,9 +227,9 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
         } // end n2
       } // end n3
 
-      for (int i=0; i<noct * nang_per_oct; ++i) {
+      for (int i=0; i<noct * nang_per_oct; ++i)
         wmu(i) *= 0.125;
-      }
+      
     } // end nDIM = 3
   } else if (angle_flag == 10) {
     if ((ndim == 1) || (ndim == 3)) {
@@ -275,9 +271,9 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
         }
       }
     }
-    for (int i=0; i<noct*nang_per_oct; ++i) {
+    for (int i=0; i<noct*nang_per_oct; ++i)
       wmu(i) = 0.25/((Real)nmu);
-    }
+    
   } else {
     msg << "### FATAL ERROR in function [InitialAngle]" << std::endl
     << "Type of angular discretization unknow: "<< angle_flag << "\n ";
@@ -317,12 +313,11 @@ void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
     if (n3z > 1) ndim = 3;
 
     Real coszeta_max = 1.0;
-    if (polar_angle) {
+    if (polar_angle)
       coszeta_max = ((Real)nang-2.0)/(Real)nang;
-    }
 
     // separate ghost zones and active zones
-    // so that they can be compatible with different angular scheme
+    // so that they can be compatible with different angular schemes
     if (nzeta > 0) {
       coszeta_v.NewAthenaArray(2*nzeta);
       zeta_v_full.NewAthenaArray(2*nzeta+2*NGHOST);
@@ -336,41 +331,37 @@ void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
 
       Real dcoszeta = coszeta_max/nzeta;
       coszeta_f(zs) = coszeta_max;
-      for (int i=1; i<nzeta; ++i) {
+      for (int i=1; i<nzeta; ++i)
         coszeta_f(i+zs) = coszeta_max - i *dcoszeta;
-      }
+      
       coszeta_f(nzeta+zs) = 0.0;
       for (int i=nzeta+1; i<2*nzeta+1; ++i)
         coszeta_f(i+zs) = -coszeta_f(2*nzeta-i+zs);
 
-      for (int i=0; i<nzeta; ++i) {
+      for (int i=0; i<nzeta; ++i)
         coszeta_v(i+zs) = 0.5*(coszeta_f(i+zs)+coszeta_f(i+zs+1));
-      }
+      
       // re-normalize
       Real normalization = 2*nzeta/std::sqrt(4*nzeta*nzeta-1);
 
-      if (!polar_angle) {
-        for (int i=0; i<nzeta; ++i) {
+      if (!polar_angle)
+        for (int i=0; i<nzeta; ++i)
           coszeta_v(i+zs) *= normalization;
-        }
-      }
 
-      for (int i=nzeta; i<2*nzeta; ++i) {
+      for (int i=nzeta; i<2*nzeta; ++i)
         coszeta_v(i+zs) = -coszeta_v(2*nzeta-i-1+zs);
-      }
 
-      for (int i=0; i<nzeta*2; ++i) {
+      for (int i=0; i<nzeta*2; ++i)
         len_zeta(i) = coszeta_f(i) - coszeta_f(i+1);
-      }
 
       // the following arrays include ghost zones
       // this is used for reconstruction
-      for (int i=0; i<2*nzeta; ++i) {
+      for (int i=0; i<2*nzeta; ++i)
         zeta_v_full(i+NGHOST) = acos(coszeta_v(i));
-      }
-      for (int i=0; i<2*nzeta+1; ++i) {
+
+      for (int i=0; i<2*nzeta+1; ++i)
         zeta_f_full(i+NGHOST) = acos(coszeta_f(i));
-      }
+
       for (int i=1; i<=NGHOST; ++i) {
         Real delta = zeta_v_full(i+NGHOST) - zeta_v_full(NGHOST+i-1);
         zeta_v_full(NGHOST-i) = zeta_v_full(NGHOST-i+1) - delta;
@@ -380,12 +371,11 @@ void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
         zeta_v_full(2*nzeta+NGHOST+i-1) = zeta_v_full(2*nzeta+NGHOST+i-2) + delta;
       }
 
-      for (int i=0; i<2*nzeta+2*NGHOST-1; ++i) {
+      for (int i=0; i<2*nzeta+2*NGHOST-1; ++i)
         dzeta_v(i) = zeta_v_full(i+1) - zeta_v_full(i);
-      }
-      for (int i=0; i<2*nzeta+1; ++i) {
+
+      for (int i=0; i<2*nzeta+1; ++i)
         zeta_f_full(i+NGHOST) = acos(coszeta_f(i));
-      }
 
       for (int i=1; i<=NGHOST; ++i) {
         Real delta = zeta_f_full(i+NGHOST) - zeta_f_full(NGHOST+i-1);
@@ -397,9 +387,8 @@ void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
         zeta_f_full(2*nzeta+NGHOST+i) = zeta_f_full(2*nzeta+NGHOST+i-1) + delta;
       }
 
-      for (int i=0; i<2*nzeta+2*NGHOST; ++i) {
+      for (int i=0; i<2*nzeta+2*NGHOST; ++i)
         dzeta_f(i) = zeta_f_full(i+1)-zeta_f_full(i);
-      }
 
     // end if nzeta > 0
     } else {
@@ -438,9 +427,8 @@ void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
 
       Real dpsi=PI/npsi;
 
-      for (int i=0; i<npsi; ++i) {
+      for (int i=0; i<npsi; ++i)
         psi_v(i) = (i+0.5)*dpsi;
-      }
       for (int i=npsi; i<2*npsi; ++i)
         psi_v(i)=2.0*PI-psi_v(2*npsi-i-1);
 
@@ -460,47 +448,41 @@ void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
 
       //  now the arrays with ghost zones
 
-      for (int i=0; i<2*npsi; ++i) {
+      for (int i=0; i<2*npsi; ++i)
         psi_v_full(i+NGHOST) = psi_v(i);
-      }
-      for (int i=0; i<2*npsi+1; ++i) {
+
+      for (int i=0; i<2*npsi+1; ++i)
         psi_f_full(i+NGHOST) = psi_f(i);
-      }
-      for (int i=1; i<=NGHOST; ++i) {
+
+      for (int i=1; i<=NGHOST; ++i)
         psi_v_full(NGHOST-i) = psi_v(2*npsi-i)-2*PI;
-      }
-      for (int i=1; i<=NGHOST; ++i) {
+
+      for (int i=1; i<=NGHOST; ++i)
         psi_v_full(2*npsi+NGHOST+i-1) = psi_v(i-1) + 2*PI;
-      }
 
-      for (int i=0; i<2*npsi+2*NGHOST-1; ++i) {
+      for (int i=0; i<2*npsi+2*NGHOST-1; ++i)
         dpsi_v(i) = psi_v_full(i+1) - psi_v_full(i);
-      }
 
-      for (int i=0; i<2*npsi+1; ++i) {
+      for (int i=0; i<2*npsi+1; ++i)
         psi_f_full(i+NGHOST) = psi_f(i);
-      }
 
-      for (int i=1; i<=NGHOST; ++i) {
+      for (int i=1; i<=NGHOST; ++i)
         psi_f_full(NGHOST-i) = psi_f(2*npsi-i)-2*PI;
-      }
 
-      for (int i=1; i<=NGHOST; ++i) {
+      for (int i=1; i<=NGHOST; ++i)
         psi_f_full(2*npsi+NGHOST+i) = psi_f(i) + 2*PI;
-      }
 
-      for (int i=0; i<2*npsi+2*NGHOST; ++i) {
+      for (int i=0; i<2*npsi+2*NGHOST; ++i)
         dpsi_f(i) = psi_f_full(i+1)-psi_f_full(i);
-      }
+
     } // end if npsi > 0
 
     // for 1D problem
     if (ndim == 1) {
       for (int i=0; i<n1z; ++i) {
-         for (int n=0; n<2*nzeta; ++n) {
-            // x,k,j,i,n
+         for (int n=0; n<2*nzeta; ++n) // x,k,j,i,n
             mu(0,0,0,i,n) = coszeta_v(n);
-         }
+         
          if (polar_angle) {
            mu(0,0,0,i,2*nzeta) = 1.0;
            mu(0,0,0,i,2*nzeta+1) = -1.0;
@@ -593,8 +575,8 @@ void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
       }
     }
     // equal weight for all cases
-    for (int n=0; n<nang; ++n) {
+    for (int n=0; n<nang; ++n)
       wmu(n) = 1.0/nang;
-    }
+    
   } // end ang_flag==1
 }
