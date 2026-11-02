@@ -34,22 +34,22 @@
 //   1  |  0       3  |  2
 
 
-// in radiatin class, n_ang is angles per octant, noct is the number of octant
+// in radiation class, nang_per_oct is angles per octant, noct is the number of octant
 
 
 // Temporary function to copy intensity
 // swap 0 and 3, 1 and 2
 // change sign of both Fx and Fy
 // only do this for 2D spherical polar
-void CopyIntensity2(Real *ir, int n_ang, int direction) {
+void CopyIntensity2(Real *ir, int nang_per_oct, int direction) {
   // here ir is only intensity for each cell and each frequency band
-  for (int n=0; n<n_ang; ++n) {
+  for (int n=0; n<nang_per_oct; ++n) {
     // from 0 to 4, 4 to 5, 5 to 1, 1 to 0
-    int ang1 = 0 * n_ang + n;
-    int ang2 = 3 * n_ang + n;
+    int ang1 = 0 * nang_per_oct + n;
+    int ang2 = 3 * nang_per_oct + n;
 
-    int ang3 = 1 * n_ang + n;
-    int ang4 = 2 * n_ang + n;
+    int ang3 = 1 * nang_per_oct + n;
+    int ang4 = 2 * nang_per_oct + n;
 
     Real temp = ir[ang1];
     ir[ang1] = ir[ang2];
@@ -63,14 +63,14 @@ void CopyIntensity2(Real *ir, int n_ang, int direction) {
   return;
 }
 
-void CopyIntensity3(Real *ir, int n_ang, int direction) {
+void CopyIntensity3(Real *ir, int nang_per_oct, int direction) {
   // here ir is only intensity for each cell and each frequency band
-  for (int n=0; n<n_ang; ++n) {
+  for (int n=0; n<nang_per_oct; ++n) {
     // switch 1 and 2, switch 3 and 0
-    int ang1 = 0 * n_ang + n;
-    int ang2 = 3 * n_ang + n;
-    int ang3 = 1 * n_ang + n;
-    int ang4 = 2 * n_ang + n;
+    int ang1 = 0 * nang_per_oct + n;
+    int ang2 = 3 * nang_per_oct + n;
+    int ang3 = 1 * nang_per_oct + n;
+    int ang4 = 2 * nang_per_oct + n;
     Real temp = ir[ang1];
     ir[ang1] = ir[ang2];
     ir[ang2] = temp;
@@ -79,12 +79,12 @@ void CopyIntensity3(Real *ir, int n_ang, int direction) {
     ir[ang4] = ir[ang3];
     ir[ang3] = temp;
   }
-  for (int n=0; n<n_ang; ++n) {
+  for (int n=0; n<nang_per_oct; ++n) {
     // switch 5 and 6, switch 4 and 7
-    int ang1 = 5 * n_ang + n;
-    int ang2 = 6 * n_ang + n;
-    int ang3 = 4 * n_ang + n;
-    int ang4 = 7 * n_ang + n;
+    int ang1 = 5 * nang_per_oct + n;
+    int ang2 = 6 * nang_per_oct + n;
+    int ang3 = 4 * nang_per_oct + n;
+    int ang4 = 7 * nang_per_oct + n;
     Real temp = ir[ang1];
     ir[ang1] = ir[ang2];
     ir[ang2] = temp;
@@ -100,26 +100,26 @@ void CopyIntensity3(Real *ir, int n_ang, int direction) {
 //   -------      ---------
 //   3  |  2       7  |  6
 
-void CopyIntensity4(Real *ir, int n_ang, int direction) {
+void CopyIntensity4(Real *ir, int nang_per_oct, int direction) {
   // here ir is only intensity for each cell and each frequency band
-  for (int n=0; n<n_ang; ++n) {
+  for (int n=0; n<nang_per_oct; ++n) {
     // from 0 to 1, 1 to 3, 3 to 2, 2 to 0
-    int ang1 = 0 * n_ang + n;
-    int ang2 = 1 * n_ang + n;
-    int ang3 = 3 * n_ang + n;
-    int ang4 = 2 * n_ang + n;
+    int ang1 = 0 * nang_per_oct + n;
+    int ang2 = 1 * nang_per_oct + n;
+    int ang3 = 3 * nang_per_oct + n;
+    int ang4 = 2 * nang_per_oct + n;
     Real temp = ir[ang1];
     ir[ang1] = ir[ang4];
     ir[ang4] = ir[ang3];
     ir[ang3] = ir[ang2];
     ir[ang2] = temp;
   }
-  for (int n=0; n<n_ang; ++n) {
+  for (int n=0; n<nang_per_oct; ++n) {
     // from 4 to 5, 5 to 7, 7 to 6, 6 to 1
-    int ang1 = 4 * n_ang + n;
-    int ang2 = 5 * n_ang + n;
-    int ang3 = 7 * n_ang + n;
-    int ang4 = 6 * n_ang + n;
+    int ang1 = 4 * nang_per_oct + n;
+    int ang2 = 5 * nang_per_oct + n;
+    int ang3 = 7 * nang_per_oct + n;
+    int ang4 = 6 * nang_per_oct + n;
 
     Real temp = ir[ang1];
     ir[ang1] = ir[ang4];
@@ -130,14 +130,14 @@ void CopyIntensity4(Real *ir, int n_ang, int direction) {
   return;
 }
 
-void CopyIntensity5(Real *ir, int n_ang, int direction) {
+void CopyIntensity5(Real *ir, int nang_per_oct, int direction) {
   // here ir is only intensity for each cell and each frequency band
-  for (int n=0; n<n_ang; ++n) {
+  for (int n=0; n<nang_per_oct; ++n) {
     // switch 0 and 4, switch 5 and 1
-    int ang1 = 0 * n_ang + n;
-    int ang2 = 4 * n_ang + n;
-    int ang3 = 5 * n_ang + n;
-    int ang4 = 1 * n_ang + n;
+    int ang1 = 0 * nang_per_oct + n;
+    int ang2 = 4 * nang_per_oct + n;
+    int ang3 = 5 * nang_per_oct + n;
+    int ang4 = 1 * nang_per_oct + n;
     Real temp = ir[ang1];
     ir[ang1] = ir[ang2];
     ir[ang2] = temp;
@@ -146,12 +146,12 @@ void CopyIntensity5(Real *ir, int n_ang, int direction) {
     ir[ang4] = ir[ang3];
     ir[ang3] = temp;
   }
-  for (int n=0; n<n_ang; ++n) {
+  for (int n=0; n<nang_per_oct; ++n) {
     // from 4 to 5, 5 to 7, 7 to 6, 6 to 4
-    int ang1 = 2 * n_ang + n;
-    int ang2 = 6 * n_ang + n;
-    int ang3 = 7 * n_ang + n;
-    int ang4 = 3 * n_ang + n;
+    int ang1 = 2 * nang_per_oct + n;
+    int ang2 = 6 * nang_per_oct + n;
+    int ang3 = 7 * nang_per_oct + n;
+    int ang4 = 3 * nang_per_oct + n;
     Real temp = ir[ang1];
     ir[ang1] = ir[ang2];
     ir[ang2] = temp;
@@ -175,7 +175,7 @@ void RadBoundaryVariable::RotateHPi_InnerX2(
     Real time, Real dt, int il, int iu, int jl, int kl, int ku, int ngh) {
   // copy radiation variables into ghost zones
   const int& noct = pmy_block_->pnrrad->noct;
-  int n_ang = pmy_block_->pnrrad->nang/noct; // angles per octant
+  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
 
   for (int k=kl; k<=ku; ++k) {
@@ -184,7 +184,7 @@ void RadBoundaryVariable::RotateHPi_InnerX2(
         for (int ifr=0; ifr<nfreq; ++ifr) {
           AthenaArray<Real> &var = *var_cc;
           Real *ir = &var(k,jl-j,i,ifr*pmy_block_->pnrrad->nang);
-          CopyIntensity5(ir, n_ang, 1);
+          CopyIntensity5(ir, nang_per_oct, 1);
         }
       }
     }
@@ -200,7 +200,7 @@ void RadBoundaryVariable::RotateHPi_InnerX2(
 void RadBoundaryVariable::RotateHPi_OuterX2(
     Real time, Real dt, int il, int iu, int ju, int kl, int ku, int ngh) {
   const int& noct = pmy_block_->pnrrad->noct;
-  int n_ang =pmy_block_->pnrrad->nang/noct; // angles per octant
+  int nang_per_oct =pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
 
   for (int k=kl; k<=ku; ++k) {
@@ -209,7 +209,7 @@ void RadBoundaryVariable::RotateHPi_OuterX2(
         for (int ifr=0; ifr<nfreq; ++ifr) {
           AthenaArray<Real> &var = *var_cc;
           Real *ir = &var(k,ju+j,i,ifr*pmy_block_->pnrrad->nang);
-          CopyIntensity5(ir, n_ang, -1);
+          CopyIntensity5(ir, nang_per_oct, -1);
         }
       }
     }
@@ -229,7 +229,7 @@ void RadBoundaryVariable::RotateHPi_InnerX3(
     Real time, Real dt, int il, int iu, int jl, int ju, int kl, int ngh) {
   // copy radiation variables into ghost zones
   const int& noct = pmy_block_->pnrrad->noct;
-  int n_ang = pmy_block_->pnrrad->nang/noct; // angles per octant
+  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq =pmy_block_->pnrrad->nfreq; // number of frequency bands
 
   for (int k=1; k<=ngh; ++k) {
@@ -238,7 +238,7 @@ void RadBoundaryVariable::RotateHPi_InnerX3(
         for (int ifr=0; ifr<nfreq; ++ifr) {
           AthenaArray<Real> &var = *var_cc;
           Real *ir = &var(kl-k,j,i,ifr*pmy_block_->pnrrad->nang);
-          CopyIntensity4(ir, n_ang, 1);
+          CopyIntensity4(ir, nang_per_oct, 1);
         }
       }
     }
@@ -258,7 +258,7 @@ void RadBoundaryVariable::RotateHPi_OuterX3(
     Real time, Real dt, int il, int iu, int jl, int ju, int ku, int ngh) {
   // copy radiation variables into ghost zones
   const int& noct = pmy_block_->pnrrad->noct;
-  int n_ang = pmy_block_->pnrrad->nang/noct; // angles per octant
+  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
 
   for (int k=1; k<=ngh; ++k) {
@@ -267,7 +267,7 @@ void RadBoundaryVariable::RotateHPi_OuterX3(
         for (int ifr=0; ifr<nfreq; ++ifr) {
           AthenaArray<Real> &var = *var_cc;
           Real *ir = &var(ku+k,j,i,ifr*pmy_block_->pnrrad->nang);
-          CopyIntensity4(ir, n_ang, 1);
+          CopyIntensity4(ir, nang_per_oct, 1);
         }
       }
     }
@@ -288,7 +288,7 @@ void RadBoundaryVariable::RotatePi_InnerX3(
     Real time, Real dt, int il, int iu, int jl, int ju, int kl, int ngh) {
   // copy radiation variables into ghost zones
   const int& noct = pmy_block_->pnrrad->noct;
-  int n_ang = pmy_block_->pnrrad->nang/noct; // angles per octant
+  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
 
   for (int k=1; k<=ngh; ++k) {
@@ -297,7 +297,7 @@ void RadBoundaryVariable::RotatePi_InnerX3(
         for (int ifr=0; ifr<nfreq; ++ifr) {
           AthenaArray<Real> &var = *var_cc;
           Real *ir = &var(kl-k,j,i,ifr*pmy_block_->pnrrad->nang);
-          CopyIntensity3(ir, n_ang, 1);
+          CopyIntensity3(ir, nang_per_oct, 1);
         }
       }
     }
@@ -317,7 +317,7 @@ void RadBoundaryVariable::RotatePi_OuterX3(
     Real time, Real dt, int il, int iu, int jl, int ju, int ku, int ngh) {
   // copy radiation variables into ghost zones
   const int& noct = pmy_block_->pnrrad->noct;
-  int n_ang = pmy_block_->pnrrad->nang/noct; // angles per octant
+  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
 
   for (int k=1; k<=ngh; ++k) {
@@ -326,7 +326,7 @@ void RadBoundaryVariable::RotatePi_OuterX3(
         for (int ifr=0; ifr<nfreq; ++ifr) {
           AthenaArray<Real> &var = *var_cc;
           Real *ir = &var(ku+k,j,i,ifr*pmy_block_->pnrrad->nang);
-          CopyIntensity3(ir, n_ang, 1);
+          CopyIntensity3(ir, nang_per_oct, 1);
         }
       }
     }

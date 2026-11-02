@@ -47,16 +47,16 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
         throw std::runtime_error(msg.str().c_str());
   }
 
-  int n_ang = nang/noct;
+  int nang_per_oct = nang/noct;
 
   mu2tmp.NewAthenaArray(nmu);
-  mutmp.NewAthenaArray(n_ang,3);
+  mutmp.NewAthenaArray(nang_per_oct,3);
   wtmp2.NewAthenaArray(nmu-1);
   wtmp.NewAthenaArray(nmu);
 
   pmat.NewAthenaArray(nmu,nmu);
   pinv.NewAthenaArray(nmu-1,nmu-1);
-  plab.NewAthenaArray(n_ang);
+  plab.NewAthenaArray(nang_per_oct);
   pl.NewAthenaArray(nmu,3);
   wpf.NewAthenaArray(nmu-1);
 
@@ -144,8 +144,8 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
         MatrixMult(nmu-1,nmu-1,pinv,wtmp,wpf);
 
         for (int l=0; l<noct; ++l) {
-          for (int i=0; i<n_ang; ++i) {
-              wmu(l*n_ang+i) = wpf(plab(i));
+          for (int i=0; i<nang_per_oct; ++i) {
+              wmu(l*nang_per_oct+i) = wpf(plab(i));
           } // end nang
         } // end noct
       } else {
@@ -176,8 +176,8 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
           for (int j=0; j<2; ++j) {
             for (int k=0; k<2; ++k) {
               int l=2*j+k;
-              for (int i=0; i<n_ang; ++i) {
-                int mi = l*n_ang + i;
+              for (int i=0; i<nang_per_oct; ++i) {
+                int mi = l*nang_per_oct + i;
                 if (k == 0) {
                   mu(axisx,0,n2,n1,mi) =  mutmp(i,0);
                 } else {
@@ -194,7 +194,7 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
         }
       }
       // for the angular weight
-      for (int i=0; i<noct * n_ang; ++i) {
+      for (int i=0; i<noct * nang_per_oct; ++i) {
           wmu(i) *= 0.25;
       }
     } else if (ndim == 3) {
@@ -206,8 +206,8 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
                 for (int l=0; l<2; ++l) {
                   int m=4*j+2*k+l;
 
-                  for (int i=0; i<n_ang; ++i) {
-                    int mi = m*n_ang + i;
+                  for (int i=0; i<nang_per_oct; ++i) {
+                    int mi = m*nang_per_oct + i;
                     if (l == 0) {
                       mu(axisx,n3,n2,n1,mi) =  mutmp(i,0);
                     } else {
@@ -231,7 +231,7 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
         } // end n2
       } // end n3
 
-      for (int i=0; i<noct * n_ang; ++i) {
+      for (int i=0; i<noct * nang_per_oct; ++i) {
         wmu(i) *= 0.125;
       }
     } // end nDIM = 3
@@ -257,8 +257,8 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
           for (int k=0; k<2; ++k) {
             int l=2*j+k;
 
-            for (int i=0; i<n_ang; ++i) {
-              int mi = l*n_ang + i;
+            for (int i=0; i<nang_per_oct; ++i) {
+              int mi = l*nang_per_oct + i;
               if (k == 0) {
                 mu(axisx,0,n2,n1,mi) =  mutmp(i,0);
               } else {
@@ -275,7 +275,7 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
         }
       }
     }
-    for (int i=0; i<noct*n_ang; ++i) {
+    for (int i=0; i<noct*nang_per_oct; ++i) {
       wmu(i) = 0.25/((Real)nmu);
     }
   } else {

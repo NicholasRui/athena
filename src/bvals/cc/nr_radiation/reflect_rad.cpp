@@ -23,16 +23,16 @@
 //   1  |  0       5  |  4
 //   -------      ---------
 //   3  |  2       7  |  6
-// in radiatin class, n_ang is angles per octant, noct is the number of octant
+// in radiation class, nang_per_oct is angles per octant, noct is the number of octant
 // radiation relfection means set specific intensitiy corresponding
 // the value in the opposite octant
 
 // Temporary function to copy intensity
-void CopyIntensity(Real *iri, Real *iro, int li, int lo, int n_ang) {
+void CopyIntensity(Real *iri, Real *iro, int li, int lo, int nang_per_oct) {
   // here ir is only intensity for each cell and each frequency band
-  for (int n=0; n<n_ang; ++n) {
-    int angi = li * n_ang + n;
-    int ango = lo * n_ang + n;
+  for (int n=0; n<nang_per_oct; ++n) {
+    int angi = li * nang_per_oct + n;
+    int ango = lo * nang_per_oct + n;
     iro[angi] = iri[ango];
     iro[ango] = iri[angi];
   }
@@ -48,7 +48,7 @@ void RadBoundaryVariable::ReflectInnerX1(Real time, Real dt, int il, int jl, int
   // copy radiation variables into ghost zones,
   // reflect rays along angles with opposite nx
   const int& noct = pmy_block_->pnrrad->noct;
-  int n_ang = pmy_block_->pnrrad->nang/noct; // angles per octant
+  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
 
   for (int k=kl; k<=ku; ++k) {
@@ -58,13 +58,13 @@ void RadBoundaryVariable::ReflectInnerX1(Real time, Real dt, int il, int jl, int
           AthenaArray<Real> &var = *var_cc;
           Real *iri = &var(k,j,(il+i-1),ifr*pmy_block_->pnrrad->nang);
           Real *iro = &var(k,j, il-i, ifr*pmy_block_->pnrrad->nang);
-          CopyIntensity(iri, iro, 0, 1, n_ang);
+          CopyIntensity(iri, iro, 0, 1, nang_per_oct);
           if (noct > 2) {
-            CopyIntensity(iri, iro, 2, 3, n_ang);
+            CopyIntensity(iri, iro, 2, 3, nang_per_oct);
           }
           if (noct > 3) {
-            CopyIntensity(iri, iro, 4, 5, n_ang);
-            CopyIntensity(iri, iro, 6, 7, n_ang);
+            CopyIntensity(iri, iro, 4, 5, nang_per_oct);
+            CopyIntensity(iri, iro, 6, 7, nang_per_oct);
           }
         }
       }
@@ -84,7 +84,7 @@ void RadBoundaryVariable::ReflectOuterX1(
   // copy radiation variables into ghost zones,
   // reflect rays along angles with opposite nx
   const int& noct = pmy_block_->pnrrad->noct;
-  int n_ang = pmy_block_->pnrrad->nang/noct; // angles per octant
+  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
 
   for (int k=kl; k<=ku; ++k) {
@@ -94,13 +94,13 @@ void RadBoundaryVariable::ReflectOuterX1(
           AthenaArray<Real> &var = *var_cc;
           Real *iri = &var(k,j,(iu-i+1),ifr*pmy_block_->pnrrad->nang);
           Real *iro = &var(k,j, iu+i, ifr*pmy_block_->pnrrad->nang);
-          CopyIntensity(iri, iro, 0, 1, n_ang);
+          CopyIntensity(iri, iro, 0, 1, nang_per_oct);
           if (noct > 2) {
-            CopyIntensity(iri, iro, 2, 3, n_ang);
+            CopyIntensity(iri, iro, 2, 3, nang_per_oct);
           }
           if (noct > 3) {
-            CopyIntensity(iri, iro, 4, 5, n_ang);
-            CopyIntensity(iri, iro, 6, 7, n_ang);
+            CopyIntensity(iri, iro, 4, 5, nang_per_oct);
+            CopyIntensity(iri, iro, 6, 7, nang_per_oct);
           }
         }
       }
@@ -120,7 +120,7 @@ void RadBoundaryVariable::ReflectInnerX2(Real time, Real dt, int il, int iu, int
   // reflect rays along angles with opposite nx
 
   const int& noct = pmy_block_->pnrrad->noct;
-  int n_ang = pmy_block_->pnrrad->nang/noct; // angles per octant
+  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
 
   for (int k=kl; k<=ku; ++k) {
@@ -130,12 +130,12 @@ void RadBoundaryVariable::ReflectInnerX2(Real time, Real dt, int il, int iu, int
           AthenaArray<Real> &var = *var_cc;
           Real *iri = &var(k,jl+j-1,i,ifr*pmy_block_->pnrrad->nang);
           Real *iro = &var(k,jl-j,i, ifr*pmy_block_->pnrrad->nang);
-          CopyIntensity(iri, iro, 0, 2, n_ang);
-          CopyIntensity(iri, iro, 1, 3, n_ang);
+          CopyIntensity(iri, iro, 0, 2, nang_per_oct);
+          CopyIntensity(iri, iro, 1, 3, nang_per_oct);
 
           if (noct > 3) {
-            CopyIntensity(iri, iro, 4, 6, n_ang);
-            CopyIntensity(iri, iro, 5, 7, n_ang);
+            CopyIntensity(iri, iro, 4, 6, nang_per_oct);
+            CopyIntensity(iri, iro, 5, 7, nang_per_oct);
           }
         }
       }
@@ -157,7 +157,7 @@ void RadBoundaryVariable::ReflectOuterX2(Real time, Real dt, int il, int iu, int
   // reflect rays along angles with opposite nx
 
   const int& noct = pmy_block_->pnrrad->noct;
-  int n_ang = pmy_block_->pnrrad->nang/noct; // angles per octant
+  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
 
   for (int k=kl; k<=ku; ++k) {
@@ -167,12 +167,12 @@ void RadBoundaryVariable::ReflectOuterX2(Real time, Real dt, int il, int iu, int
           AthenaArray<Real> &var = *var_cc;
           Real *iri = &var(k,ju-j+1,i,ifr*pmy_block_->pnrrad->nang);
           Real *iro = &var(k,ju+j,i, ifr*pmy_block_->pnrrad->nang);
-          CopyIntensity(iri, iro, 0, 2, n_ang);
-          CopyIntensity(iri, iro, 1, 3, n_ang);
+          CopyIntensity(iri, iro, 0, 2, nang_per_oct);
+          CopyIntensity(iri, iro, 1, 3, nang_per_oct);
 
           if (noct > 3) {
-            CopyIntensity(iri, iro, 4, 6, n_ang);
-            CopyIntensity(iri, iro, 5, 7, n_ang);
+            CopyIntensity(iri, iro, 4, 6, nang_per_oct);
+            CopyIntensity(iri, iro, 5, 7, nang_per_oct);
           }
         }
       }
@@ -195,7 +195,7 @@ void RadBoundaryVariable::ReflectInnerX3(Real time, Real dt, int il, int iu, int
   // reflect rays along angles with opposite nx
 
   const int& noct = pmy_block_->pnrrad->noct;
-  int n_ang = pmy_block_->pnrrad->nang/noct; // angles per octant
+  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
 
   for (int k=1; k<=ngh; ++k) {
@@ -205,10 +205,10 @@ void RadBoundaryVariable::ReflectInnerX3(Real time, Real dt, int il, int iu, int
           AthenaArray<Real> &var = *var_cc;
           Real *iri = &var(kl+k-1,j,i,ifr*pmy_block_->pnrrad->nang);
           Real *iro = &var(kl-k,j,i, ifr*pmy_block_->pnrrad->nang);
-          CopyIntensity(iri, iro, 0, 4, n_ang);
-          CopyIntensity(iri, iro, 1, 5, n_ang);
-          CopyIntensity(iri, iro, 2, 6, n_ang);
-          CopyIntensity(iri, iro, 3, 7, n_ang);
+          CopyIntensity(iri, iro, 0, 4, nang_per_oct);
+          CopyIntensity(iri, iro, 1, 5, nang_per_oct);
+          CopyIntensity(iri, iro, 2, 6, nang_per_oct);
+          CopyIntensity(iri, iro, 3, 7, nang_per_oct);
         }
       }
     }
@@ -226,7 +226,7 @@ void RadBoundaryVariable::ReflectOuterX3(Real time, Real dt, int il, int iu, int
   // copy radiation variables into ghost zones,
   // reflect rays along angles with opposite nx
   const int& noct = pmy_block_->pnrrad->noct;
-  int n_ang = pmy_block_->pnrrad->nang/noct; // angles per octant
+  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
 
   for (int k=1; k<=ngh; ++k) {
@@ -236,10 +236,10 @@ void RadBoundaryVariable::ReflectOuterX3(Real time, Real dt, int il, int iu, int
           AthenaArray<Real> &var = *var_cc;
           Real *iri = &var(ku-k+1,j,i,ifr*pmy_block_->pnrrad->nang);
           Real *iro = &var(ku+k,j,i, ifr*pmy_block_->pnrrad->nang);
-          CopyIntensity(iri, iro, 0, 4, n_ang);
-          CopyIntensity(iri, iro, 1, 5, n_ang);
-          CopyIntensity(iri, iro, 2, 6, n_ang);
-          CopyIntensity(iri, iro, 3, 7, n_ang);
+          CopyIntensity(iri, iro, 0, 4, nang_per_oct);
+          CopyIntensity(iri, iro, 1, 5, nang_per_oct);
+          CopyIntensity(iri, iro, 2, 6, nang_per_oct);
+          CopyIntensity(iri, iro, 3, 7, nang_per_oct);
         }
       }
     }

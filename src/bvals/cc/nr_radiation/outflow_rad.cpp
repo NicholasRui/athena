@@ -23,7 +23,7 @@
 //   1  |  0       5  |  4
 //   -------      ---------
 //   3  |  2       7  |  6
-// in radiatin class, n_ang is angles per octant, noct is the number of octant
+// in radiation class, nang_per_oct is angles per octant, noct is the number of octant
 // radiation relfection means set specific intensitiy corresponding
 // the value in the opposite octant
 

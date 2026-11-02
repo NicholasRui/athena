@@ -142,7 +142,7 @@ NRRadiation::NRRadiation(MeshBlock *pmb, ParameterInput *pin):
   if (nc3 > 1) ndim = 3;
 
   // NZRTODO: change names of these angle_flag pls :( !!
-  // NZRTODO: change n_ang to nang_per_oct everywhere....
+  // NZRTODO: change nang_per_oct to nang_per_oct everywhere....
   // NZRTODO: fix some typos
   // NZRTODO: Document what these angle flags actually mean -- probably even rename them
 // The default angular grid is a set of angles that always propagate along fixed physical directions (independent coordinate locations). They are constructed following the same way as used in Davis et al. (2012, ApJS, 199, 9). The number of angles can be changed using the nmu parameter in the input file. If angle_flag is set to 1, then the code will use the angular system that will rotate with respect to local coordinate direction so that the projected components with respect to local mesh do not change (see Jiang, ApJS, 2022, 263, 4). If polar_angle is set to 1, two additional angles will be added that will move exactly along the radial direction (upward and downward directions). So this only makes sense for spherical polar coordinate.
@@ -153,10 +153,10 @@ NRRadiation::NRRadiation(MeshBlock *pmb, ParameterInput *pin):
   if (angle_flag == 1 && ndim == 2 && (std::strcmp(COORDINATE_SYSTEM, "spherical_polar") == 0)) noct = 8; // exception
   
   // Assign number of angles per octant
-  int n_ang = 0;
+  int nang_per_oct = 0;
 
   if (angle_flag == 1 && ndim == 1) {
-    n_ang = nzeta;
+    nang_per_oct = nzeta;
     
     if (npsi > 0) { // cannot vary angles in phi direction with only one dimension
       std::stringstream msg;
@@ -167,30 +167,30 @@ NRRadiation::NRRadiation(MeshBlock *pmb, ParameterInput *pin):
 
   } else if (angle_flag == 1 && ndim == 2) {
     if (std::strcmp(COORDINATE_SYSTEM, "spherical_polar") == 0) {
-      n_ang = nzeta*npsi/2;
+      nang_per_oct = nzeta*npsi/2;
     } else {
-      if (npsi <= 1) n_ang = nzeta; // only grid in theta
-      if (nzeta == 0) n_ang = npsi/2; // only grid in psi
-      if (npsi > 1 && nzeta > 0) n_ang = nzeta*npsi; // general case
+      if (npsi <= 1) nang_per_oct = nzeta; // only grid in theta
+      if (nzeta == 0) nang_per_oct = npsi/2; // only grid in psi
+      if (npsi > 1 && nzeta > 0) nang_per_oct = nzeta*npsi; // general case
     }
 
   } else if (angle_flag == 1 && ndim == 3) {
-    n_ang = nzeta*npsi/2;
+    nang_per_oct = nzeta*npsi/2;
 
   } else if (angle_flag != 1 && ndim == 1) {
-    n_ang = nmu;
+    nang_per_oct = nmu;
 
   } else if (angle_flag != 1 && ndim == 2) {
-    if (angle_flag == 0) n_ang = nmu * (nmu + 1) / 2;
-    if (angle_flag == 10) n_ang = nmu;
+    if (angle_flag == 0) nang_per_oct = nmu * (nmu + 1) / 2;
+    if (angle_flag == 10) nang_per_oct = nmu;
 
   } else if (angle_flag != 1 && ndim == 3) {
-    if (angle_flag == 0) n_ang = nmu * (nmu + 1) / 2;
-    if (angle_flag == 10) n_ang = nmu * nmu/2;
+    if (angle_flag == 0) nang_per_oct = nmu * (nmu + 1) / 2;
+    if (angle_flag == 10) nang_per_oct = nmu * nmu/2;
   }
 
 
-  nang = n_ang * noct;
+  nang = nang_per_oct * noct;
 
   // need to add two angles along the polar direction
   if(polar_angle)
