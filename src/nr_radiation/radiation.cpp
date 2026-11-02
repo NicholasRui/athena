@@ -134,63 +134,61 @@ NRRadiation::NRRadiation(MeshBlock *pmb, ParameterInput *pin):
 
   set_source_flag = pin->GetOrAddInteger("radiation","source_flag",1);
 
-  // number of cells for three dimensions
+  // Read number of cells in each dimension
   int nc1 = pmb->ncells1, nc2 = pmb->ncells2, nc3 = pmb->ncells3;
-  // calculate noct based on dimension
+
   int ndim = 1;
   if (nc2 > 1) ndim = 2;
   if (nc3 > 1) ndim = 3;
 
-  int n_ang=0; // number of angles per octant and number of octant
-  // total calculate total number of angles based on dimensions
-  if (angle_flag == 1) {
-    if (ndim == 1) {
-      noct = 2;
-      n_ang = nzeta;
-      if (npsi > 0) {
-        std::stringstream msg;
-        msg << "### FATAL ERROR in radiation class" << std::endl
-            << "1D problem cannot have npsi > 0"   << std::endl;
-        ATHENA_ERROR(msg);
-      }
-    } else if (ndim == 2) {
-      if (npsi <= 1) {
-        n_ang = nzeta;
-      } else if (nzeta == 0) {
-        n_ang = npsi/2;
-      } else {
-        n_ang = nzeta*npsi;
-      }
-      if (std::strcmp(COORDINATE_SYSTEM, "spherical_polar") == 0) {
-        noct = 8;
-        n_ang = nzeta*npsi/2;
-      } else {
-        noct = 4;
-      }
-    } else if (ndim == 3) {
+  // NZRTODO: change names of these angle_flag pls :( !!
+  // NZRTODO: change n_ang to nang_per_oct everywhere....
+  // NZRTODO: fix some typos
+  // NZRTODO: Document what these angle flags actually mean -- probably even rename them
+// The default angular grid is a set of angles that always propagate along fixed physical directions (independent coordinate locations). They are constructed following the same way as used in Davis et al. (2012, ApJS, 199, 9). The number of angles can be changed using the nmu parameter in the input file. If angle_flag is set to 1, then the code will use the angular system that will rotate with respect to local coordinate direction so that the projected components with respect to local mesh do not change (see Jiang, ApJS, 2022, 263, 4). If polar_angle is set to 1, two additional angles will be added that will move exactly along the radial direction (upward and downward directions). So this only makes sense for spherical polar coordinate.
+
+
+  // Assign number of octants
+  noct = std::pow(2, ndim);
+  if (angle_flag == 1 && ndim == 2 && (std::strcmp(COORDINATE_SYSTEM, "spherical_polar") == 0)) noct = 8; // exception
+  
+  // Assign number of angles per octant
+  int n_ang = 0;
+
+  if (angle_flag == 1 && ndim == 1) {
+    n_ang = nzeta;
+    
+    if (npsi > 0) { // cannot vary angles in phi direction with only one dimension
+      std::stringstream msg;
+      msg << "### FATAL ERROR in radiation class" << std::endl
+          << "1D problem cannot have npsi > 0"   << std::endl;
+      ATHENA_ERROR(msg);
+    }
+
+  } else if (angle_flag == 1 && ndim == 2) {
+    if (std::strcmp(COORDINATE_SYSTEM, "spherical_polar") == 0) {
       n_ang = nzeta*npsi/2;
-      noct = 8;
+    } else {
+      if (npsi <= 1) n_ang = nzeta; // only grid in theta
+      if (nzeta == 0) n_ang = npsi/2; // only grid in psi
+      if (npsi > 1 && nzeta > 0) n_ang = nzeta*npsi; // general case
     }
-  } else {
-    if (ndim == 1) {
-      n_ang = nmu;
-      noct = 2;
-    } else if (ndim == 2) {
-      noct = 4;
-      if (angle_flag == 0) {
-        n_ang = nmu * (nmu + 1)/2;
-      } else if (angle_flag == 10) {
-        n_ang = nmu;
-      }
-    } else if (ndim == 3) {
-      noct = 8;
-      if (angle_flag == 0) {
-        n_ang = nmu * (nmu + 1)/2;
-      } else if (angle_flag == 10) {
-        n_ang = nmu * nmu/2;
-      }
-    }
+
+  } else if (angle_flag == 1 && ndim == 3) {
+    n_ang = nzeta*npsi/2;
+
+  } else if (angle_flag != 1 && ndim == 1) {
+    n_ang = nmu;
+
+  } else if (angle_flag != 1 && ndim == 2) {
+    if (angle_flag == 0) n_ang = nmu * (nmu + 1) / 2;
+    if (angle_flag == 10) n_ang = nmu;
+
+  } else if (angle_flag != 1 && ndim == 3) {
+    if (angle_flag == 0) n_ang = nmu * (nmu + 1) / 2;
+    if (angle_flag == 10) n_ang = nmu * nmu/2;
   }
+
 
   nang = n_ang * noct;
 
