@@ -203,7 +203,7 @@ RadIntegrator::RadIntegrator(NRRadiation *prad, ParameterInput *pin) {
     split_ratio_.NewAthenaArray(nang,nfreq,nmax_map_);
     // this needs to be done for each angle, all frequency groups
     fre_map_matrix_.NewAthenaArray(nfreq,nmax_map_);
-    delta_nu_n_.NewAthenaArray(nfreq);
+    delta_nu_n_.NewAthenaArray(nfreq-1);
     map_bin_start_.NewAthenaArray(nang,nfreq);
     map_bin_end_.NewAthenaArray(nang,nfreq);
     map_count_.NewAthenaArray(nfreq);

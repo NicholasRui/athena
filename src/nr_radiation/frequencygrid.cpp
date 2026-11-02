@@ -88,12 +88,12 @@ void NRRadiation::FrequencyGrid() {
       }
     }// end nfreq > 2
 
-    nu_cen.NewAthenaArray(nfreq);
+    nu_cen.NewAthenaArray(nfreq-1);
 
     for(int n=0; n<nfreq-1; ++n)
       nu_cen(n) = 0.5*(nu_grid(n)+nu_grid(n+1));
 
-    delta_nu.NewAthenaArray(nfreq);
+    delta_nu.NewAthenaArray(nfreq-1);
 
     for(int n=0; n<nfreq-1; ++n) {
       delta_nu(n) = nu_grid(n+1)-nu_grid(n);
