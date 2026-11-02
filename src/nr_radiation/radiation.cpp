@@ -20,7 +20,9 @@
 // C headers
 
 // C++ headers
+#include <cmath>   // pow
 #include <cstdio>  // fopen and fwrite
+#include <cstring> // strcmp
 #include <iostream>  // cout
 #include <sstream>  // msg
 #include <stdexcept> // runtime erro
@@ -141,60 +143,20 @@ NRRadiation::NRRadiation(MeshBlock *pmb, ParameterInput *pin):
   if (nc2 > 1) ndim = 2;
   if (nc3 > 1) ndim = 3;
 
+  // NZRTODO: should fix misallocated extra element in frequency grid for multigroup
   // NZRTODO: change names of these angle_flag pls :( !!
-  // NZRTODO: change nang_per_oct to nang_per_oct everywhere....
-  // NZRTODO: fix some typos
   // NZRTODO: Document what these angle flags actually mean -- probably even rename them
 // The default angular grid is a set of angles that always propagate along fixed physical directions (independent coordinate locations). They are constructed following the same way as used in Davis et al. (2012, ApJS, 199, 9). The number of angles can be changed using the nmu parameter in the input file. If angle_flag is set to 1, then the code will use the angular system that will rotate with respect to local coordinate direction so that the projected components with respect to local mesh do not change (see Jiang, ApJS, 2022, 263, 4). If polar_angle is set to 1, two additional angles will be added that will move exactly along the radial direction (upward and downward directions). So this only makes sense for spherical polar coordinate.
 
 
-  // Assign number of octants
-  noct = std::pow(2, ndim);
-  if (angle_flag == 1 && ndim == 2 && (std::strcmp(COORDINATE_SYSTEM, "spherical_polar") == 0)) noct = 8; // exception
-  
-  // Assign number of angles per octant
-  int nang_per_oct = 0;
-
-  if (angle_flag == 1 && ndim == 1) {
-    nang_per_oct = nzeta;
-    
-    if (npsi > 0) { // cannot vary angles in phi direction with only one dimension
-      std::stringstream msg;
-      msg << "### FATAL ERROR in radiation class" << std::endl
-          << "1D problem cannot have npsi > 0"   << std::endl;
-      ATHENA_ERROR(msg);
-    }
-
-  } else if (angle_flag == 1 && ndim == 2) {
-    if (std::strcmp(COORDINATE_SYSTEM, "spherical_polar") == 0) {
-      nang_per_oct = nzeta*npsi/2;
-    } else {
-      if (npsi <= 1) nang_per_oct = nzeta; // only grid in theta
-      if (nzeta == 0) nang_per_oct = npsi/2; // only grid in psi
-      if (npsi > 1 && nzeta > 0) nang_per_oct = nzeta*npsi; // general case
-    }
-
-  } else if (angle_flag == 1 && ndim == 3) {
-    nang_per_oct = nzeta*npsi/2;
-
-  } else if (angle_flag != 1 && ndim == 1) {
-    nang_per_oct = nmu;
-
-  } else if (angle_flag != 1 && ndim == 2) {
-    if (angle_flag == 0) nang_per_oct = nmu * (nmu + 1) / 2;
-    if (angle_flag == 10) nang_per_oct = nmu;
-
-  } else if (angle_flag != 1 && ndim == 3) {
-    if (angle_flag == 0) nang_per_oct = nmu * (nmu + 1) / 2;
-    if (angle_flag == 10) nang_per_oct = nmu * nmu/2;
-  }
+// NZRTODO: there is this weird agreement thing:
+// Claude: Unrecognised angle_flag in 2D or 3D (not 0, 1 or 10): the old meshblock code started its per-octant count at 1, while NRRadiation started at 0. So meshblock now gives nfre_ang = 0 instead of noct*nfreq. The two already disagreed in that case, so this only brings them back into line.
 
 
-  nang = nang_per_oct * noct;
-
-  // need to add two angles along the polar direction
-  if(polar_angle)
-    nang += 2;
+  int nang_per_oct;
+  GetNumAnglesAndOctants(angle_flag, ndim, polar_angle,
+      nmu, nzeta, npsi, COORDINATE_SYSTEM,
+      noct, nang_per_oct, nang);
 
   // frequency grid
   //frequency grid covers -infty to infty, default nfreq=1, means gray
@@ -384,4 +346,62 @@ void NRRadiation::EnrollFrequencyFunction(FrequencyFunc MyFrequencyFunction) {
 
 void NRRadiation::EnrollEmissionFunction(EmissionFunc MyEmissionSpec) {
   UserEmissionSpec = MyEmissionSpec;
+}
+
+
+// Assigns number of angles and octants
+// Called both here and in src/mesh/meshblock.cpp
+void NRRadiation::GetNumAnglesAndOctants(int angle_flag, int ndim, int polar_angle,
+    int nmu, int nzeta, int npsi, const char* coord,
+    int &noct, int &nang_per_oct, int &nang) {
+  
+  // Assign number of octants
+  noct = std::pow(2, ndim);
+  if (angle_flag == 1 && ndim == 2 && (std::strcmp(coord, "spherical_polar") == 0)) {
+    noct = 8; // exception for sph coords
+  }
+
+  // Assign number of angles per octant
+  nang_per_oct = 0;
+
+  if (angle_flag == 1 && ndim == 1) {
+    nang_per_oct = nzeta;
+    
+    if (npsi > 0) { // cannot vary angles in phi direction with only one dimension
+      std::stringstream msg;
+      msg << "### FATAL ERROR in radiation class" << std::endl
+          << "1D problem cannot have npsi > 0"   << std::endl;
+      ATHENA_ERROR(msg);
+    }
+
+  } else if (angle_flag == 1 && ndim == 2) {
+    if (std::strcmp(coord, "spherical_polar") == 0) {
+      nang_per_oct = nzeta*npsi/2;
+    } else {
+      if (npsi <= 1) nang_per_oct = nzeta; // only grid in theta
+      if (nzeta == 0) nang_per_oct = npsi/2; // only grid in psi
+      if (npsi > 1 && nzeta > 0) nang_per_oct = nzeta*npsi; // general case
+    }
+
+  } else if (angle_flag == 1 && ndim == 3) {
+    nang_per_oct = nzeta*npsi/2;
+
+  } else if (angle_flag != 1 && ndim == 1) {
+    nang_per_oct = nmu;
+
+  } else if (angle_flag != 1 && ndim == 2) {
+    if (angle_flag == 0) nang_per_oct = nmu * (nmu + 1) / 2;
+    if (angle_flag == 10) nang_per_oct = nmu;
+
+  } else if (angle_flag != 1 && ndim == 3) {
+    if (angle_flag == 0) nang_per_oct = nmu * (nmu + 1) / 2;
+    if (angle_flag == 10) nang_per_oct = nmu * nmu/2;
+  }
+
+  nang = nang_per_oct * noct;
+
+  // need to add two angles along the polar direction
+  if(polar_angle)
+    nang += 2;
+
 }

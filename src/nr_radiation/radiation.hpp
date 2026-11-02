@@ -85,6 +85,12 @@ class NRRadiation {
   AthenaArray<Real> psi_v, psi_f, len_psi, psi_v_full, psi_f_full,
                     dpsi_v, dpsi_f, sin_psi_f, cot_theta;
 
+  // assign number of angles, angles/octant, and octants
+  // static so MeshBlock can call it before NRRadiation is constructed
+  static void GetNumAnglesAndOctants(int angle_flag, int ndim, int polar_angle,
+      int nmu, int nzeta, int npsi, const char* coord,
+      int &noct, int &nang_per_oct, int &nang);
+
   // The frequency grid
   Real nu_min, nu_max;
   // mininum and maximum frequencies, and number of frequency bins

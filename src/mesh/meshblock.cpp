@@ -126,50 +126,11 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     int npsi = pin->GetOrAddInteger("radiation","npsi",0);
     int angle_flag = pin->GetOrAddInteger("radiation","angle_flag",0);
     int polar_angle = pin->GetOrAddInteger("radiation","polar_angle",0);
-    int n_ang=1; // number of angles per octant and number of octant
-    int noct=2;
-    // calculate total number of angles based on dimensions
-    if (angle_flag == 1) {
-      if (ndim == 1) {
-        noct = 2;
-        n_ang = nzeta;
-      } else if (ndim == 2) {
-        if (npsi <= 1) {
-          n_ang = nzeta;
-        } else if (nzeta == 0) {
-          n_ang = npsi/2;
-        } else {
-          n_ang = nzeta*npsi;
-        }
-        noct = 4;
-      } else if (ndim == 3) {
-        n_ang = nzeta*npsi/2;
-        noct = 8;
-      }
-
-    } else {
-      if (ndim == 1) {
-        n_ang = nmu;
-        noct = 2;
-      } else if (ndim == 2) {
-        noct = 4;
-        if (angle_flag == 0) {
-          n_ang = nmu * (nmu + 1)/2;
-        } else if (angle_flag == 10) {
-          n_ang = nmu;
-        }
-      } else if (ndim == 3) {
-        noct = 8;
-        if (angle_flag == 0) {
-          n_ang = nmu * (nmu + 1)/2;
-        } else if (angle_flag == 10) {
-          n_ang = nmu * nmu/2;
-        }
-      }
-    }
-    nfre_ang = n_ang * noct * nfreq;
-    if(polar_angle)
-      nfre_ang = (n_ang * noct + 2) * nfreq;
+    int noct, nang_per_oct, nang;
+    NRRadiation::GetNumAnglesAndOctants(angle_flag, ndim, polar_angle,
+        nmu, nzeta, npsi, COORDINATE_SYSTEM,
+        noct, nang_per_oct, nang);
+    nfre_ang = nang * nfreq;
   }
   //========================================================
   // Reconstruction: constructor may implicitly depend on Coordinates, and PPM variable
@@ -334,51 +295,11 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     int npsi = pin->GetOrAddInteger("radiation","npsi",0);
     int angle_flag = pin->GetOrAddInteger("radiation","angle_flag",0);
     int polar_angle = pin->GetOrAddInteger("radiation","polar_angle",0);
-    int n_ang=1; // number of angles per octant and number of octant
-    int noct=2;
-
-    // calculate total number of angles based on dimensions
-    if (angle_flag == 1) {
-      if (ndim == 1) {
-        noct = 2;
-        n_ang = nzeta;
-      } else if (ndim == 2) {
-        if (npsi <= 1) {
-          n_ang = nzeta;
-        } else if (nzeta == 0) {
-          n_ang = npsi/2;
-        } else {
-          n_ang = nzeta*npsi;
-        }
-        noct = 4;
-      } else if (ndim == 3) {
-        n_ang = nzeta*npsi/2;
-        noct = 8;
-      }
-
-    } else {
-      if (ndim == 1) {
-        n_ang = nmu;
-        noct = 2;
-      } else if (ndim == 2) {
-        noct = 4;
-        if (angle_flag == 0) {
-          n_ang = nmu * (nmu + 1)/2;
-        } else if (angle_flag == 10) {
-          n_ang = nmu;
-        }
-      } else if (ndim == 3) {
-        noct = 8;
-        if (angle_flag == 0) {
-          n_ang = nmu * (nmu + 1)/2;
-        } else if (angle_flag == 10) {
-          n_ang = nmu * nmu/2;
-        }
-      }
-    }
-    nfre_ang = n_ang * noct * nfreq;
-    if(polar_angle)
-      nfre_ang = (n_ang * noct + 2) * nfreq;
+    int noct, nang_per_oct, nang;
+    NRRadiation::GetNumAnglesAndOctants(angle_flag, ndim, polar_angle,
+        nmu, nzeta, npsi, COORDINATE_SYSTEM,
+        noct, nang_per_oct, nang);
+    nfre_ang = nang * nfreq;
   }
 
   // Reconstruction (constructor may implicitly depend on Coordinates)
