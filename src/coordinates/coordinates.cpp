@@ -797,7 +797,7 @@ void __attribute__((weak)) Coordinates::ZetaArea(NRRadiation *prad,
       for (int m=0; m<2*npsi; ++m) {
         for (int n=0; n<2*nzeta+1; ++n) {
           Real sinzeta_sq= 1.0 - prad->coszeta_f(n) * prad->coszeta_f(n);
-          area(m,n) = sinzeta_sq * prad->len_psi(m);
+          area(m,n) = sinzeta_sq * prad->dpsi_f(m);
         }// end psi
       }// end zeta
     } else if (nzeta > 0) {
@@ -816,7 +816,7 @@ void __attribute__((weak)) Coordinates::PsiArea(NRRadiation *prad,
     if (npsi * nzeta > 0) {
       for (int n=0; n<2*nzeta; ++n) {
         for (int m=0; m<2*npsi+1; ++m) {
-          area(n,m) = prad->len_zeta(n);
+          area(n,m) = prad->dcoszeta_f(n);
         }
       }
     } else if (npsi > 0) {
@@ -836,15 +836,15 @@ void __attribute__((weak)) Coordinates::AngularVol(NRRadiation *prad,
       for (int n=0; n<2*nzeta; ++n) {
         for (int m=0; m<2*npsi; ++m) {
           int ang_num = n*(2*npsi)+m;
-          vol(ang_num) = prad->len_zeta(n) * prad->len_psi(m);
+          vol(ang_num) = prad->dcoszeta_f(n) * prad->dpsi_f(m);
         }
       }
     } else if (npsi > 0) {
       for (int m=0; m<2*npsi; ++m)
-        vol(m) = prad->len_psi(m);
+        vol(m) = prad->dpsi_f(m);
     } else if (nzeta > 0) {
       for (int n=0; n<2*nzeta; ++n)
-        vol(n) = prad->len_zeta(n);
+        vol(n) = prad->dcoszeta_f(n);
     }
   }
 }

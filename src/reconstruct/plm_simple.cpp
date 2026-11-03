@@ -661,11 +661,11 @@ void Reconstruction::PiecewiseLinearZeta(
     qc(n) = q(n);
   }
   for (int n=zs; n<=ze; ++n) {
-    Real cf = prad->dzeta_v(n)/(prad->zeta_f_full(n+1)
+    Real cf = prad->dzeta_v_full(n)/(prad->zeta_f_full(n+1)
                                 - prad->zeta_v_full(n)); // (Mignone eq 33)
-    Real cb = prad->dzeta_v(n-1)/(prad->zeta_v_full(n) - prad->zeta_f_full(n));
-    Real dqF =  dqr(n)*prad->dzeta_f(n)/prad->dzeta_v(n);
-    Real dqB =  dql(n)*prad->dzeta_f(n)/prad->dzeta_v(n-1);
+    Real cb = prad->dzeta_v_full(n-1)/(prad->zeta_v_full(n) - prad->zeta_f_full(n));
+    Real dqF =  dqr(n)*prad->dzeta_f_full(n)/prad->dzeta_v_full(n);
+    Real dqB =  dql(n)*prad->dzeta_f_full(n)/prad->dzeta_v_full(n-1);
     Real dq2 = dqF*dqB;
     // (modified) VL limiter (Mignone eq 37)
     // (dQ^F term from eq 31 pulled into eq 37, then multiply by (dQ^F/dQ^F)^2)
@@ -678,8 +678,8 @@ void Reconstruction::PiecewiseLinearZeta(
     //dqm(n,i) = dqF*std::max(0.0, std::min(0.5*(1.0 + v), std::min(cf, cb*v)));
   }
   for (int n=zs; n<=ze; ++n) {
-    Real ratio_l=(prad->zeta_f_full(n+1) - prad->zeta_v_full(n))/prad->dzeta_f(n);
-    Real ratio_r=(prad->zeta_v_full(n) - prad->zeta_f_full(n))/prad->dzeta_f(n);
+    Real ratio_l=(prad->zeta_f_full(n+1) - prad->zeta_v_full(n))/prad->dzeta_f_full(n);
+    Real ratio_r=(prad->zeta_v_full(n) - prad->zeta_f_full(n))/prad->dzeta_f_full(n);
     // Mignone equation 30
     ql(n+1) = qc(n) + ratio_l*dqm(n);
     qr(n  ) = qc(n) - ratio_r*dqm(n);
@@ -704,11 +704,11 @@ void Reconstruction::PiecewiseLinearPsi(
 
 #pragma omp simd
   for (int m=ps; m<=pe; ++m) {
-    Real cf = prad->dpsi_v(m)/(prad->psi_f_full(m+1)
+    Real cf = prad->dpsi_v_full(m)/(prad->psi_f_full(m+1)
                                - prad->psi_v_full(m)); // (Mignone eq 33)
-    Real cb = prad->dpsi_v(m-1)/(prad->psi_v_full(m) - prad->psi_f_full(m));
-    Real dqF =  dqr(m)*prad->dpsi_f(m)/prad->dpsi_v(m);
-    Real dqB =  dql(m)*prad->dpsi_f(m)/prad->dpsi_v(m-1);
+    Real cb = prad->dpsi_v_full(m-1)/(prad->psi_v_full(m) - prad->psi_f_full(m));
+    Real dqF =  dqr(m)*prad->dpsi_f_full(m)/prad->dpsi_v_full(m);
+    Real dqB =  dql(m)*prad->dpsi_f_full(m)/prad->dpsi_v_full(m-1);
     Real dq2 = dqF*dqB;
     // (modified) VL limiter (Mignone eq 37)
     // (dQ^F term from eq 31 pulled into eq 37, then multiply by (dQ^F/dQ^F)^2)
@@ -723,8 +723,8 @@ void Reconstruction::PiecewiseLinearPsi(
 
 #pragma omp simd
   for (int m=ps; m<=pe; ++m) {
-    Real ratio_l=(prad->psi_f_full(m+1) - prad->psi_v_full(m))/prad->dpsi_f(m);
-    Real ratio_r=(prad->psi_v_full(m) - prad->psi_f_full(m))/prad->dpsi_f(m);
+    Real ratio_l=(prad->psi_f_full(m+1) - prad->psi_v_full(m))/prad->dpsi_f_full(m);
+    Real ratio_r=(prad->psi_v_full(m) - prad->psi_f_full(m))/prad->dpsi_f_full(m);
     // Mignone equation 30
     ql(m+1) = qc(m) + ratio_l*dqm(m);
     qr(m  ) = qc(m) - ratio_r*dqm(m);

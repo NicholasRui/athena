@@ -80,10 +80,10 @@ class NRRadiation {
   int polar_angle;
   // variables related to the angular space transport
   int nzeta, npsi;
-  AthenaArray<Real> coszeta_v, zeta_v_full, zeta_f_full, dzeta_v, dzeta_f,
-                    coszeta_f, len_zeta;
-  AthenaArray<Real> psi_v, psi_f, len_psi, psi_v_full, psi_f_full,
-                    dpsi_v, dpsi_f, sin_psi_f, cot_theta;
+  AthenaArray<Real> coszeta_v, zeta_v_full, zeta_f_full, dzeta_v_full, dzeta_f_full,
+                    coszeta_f, dcoszeta_f;
+  AthenaArray<Real> psi_v, psi_f, dpsi_f, psi_v_full, psi_f_full,
+                    dpsi_v_full, dpsi_f_full, sinpsi_f, cot_theta;
 
   // assign number of angles, angles/octant, and octants
   // static so MeshBlock can call it before NRRadiation is constructed

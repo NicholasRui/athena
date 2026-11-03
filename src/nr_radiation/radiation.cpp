@@ -354,7 +354,15 @@ void NRRadiation::EnrollEmissionFunction(EmissionFunc MyEmissionSpec) {
 void NRRadiation::GetNumAnglesAndOctants(int angle_flag, int ndim, int polar_angle,
     int nmu, int nzeta, int npsi, const char* coord,
     int &noct, int &nang_per_oct, int &nang) {
-  
+
+  // negative values are not caught by the npsi == 0 / nzeta > 0 checks downstream
+  if (nzeta < 0 || npsi < 0) {
+    std::stringstream msg;
+    msg << "### FATAL ERROR in radiation class" << std::endl
+        << "nzeta and npsi must be non-negative" << std::endl;
+    ATHENA_ERROR(msg);
+  }
+
   // Assign number of octants
   noct = std::pow(2, ndim);
   if (angle_flag == 1 && ndim == 2 && (std::strcmp(coord, "spherical_polar") == 0)) {

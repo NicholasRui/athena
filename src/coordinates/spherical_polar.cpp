@@ -797,7 +797,7 @@ void Coordinates::GetGeometryPsi(NRRadiation *prad, const int k, const int j,
     }
   } else {
     for(int n=0; n<2*npsi+1; ++n) {
-      g_psi(n) = sinzeta_v * cottheta * prad->sin_psi_f(n) * inv_radius;
+      g_psi(n) = sinzeta_v * cottheta * prad->sinpsi_f(n) * inv_radius;
     }
   }
 }
@@ -815,7 +815,7 @@ void Coordinates::GetGeometryPsi(NRRadiation *prad, const int k, const int j,
     }
   } else {
     for(int n=0; n<2*npsi+1; ++n) {
-      g_psi(n) = cottheta * prad->sin_psi_f(n) * inv_radius;
+      g_psi(n) = cottheta * prad->sinpsi_f(n) * inv_radius;
     }
   }
 }

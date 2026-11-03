@@ -66,7 +66,6 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
   pmy_block->pcoord->AxisDirection(&axisx, &axisy, &axisz);
 
   // check the dimension of the problem
-
   int n1z = pmb->ncells1, n2z = pmb->ncells2, n3z = pmb->ncells3;
 
   int ndim = 1;
@@ -289,294 +288,362 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
 // to local coordinate system
 
 // This is the so-called spherical polar tetrad,
-// which is ideal for spherical polar coordinate
+// which is ideal for spherical polar coordinates
 
-// nzeta is number of zeta angles in one octant
-// npsi is the number of psi angles between 0 and pi
+// This is the angle_flag == 1 case and follows Jiang 2022, ApJS 263, 4
+
 void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
   MeshBlock *pmb=pmy_block;
-  if (angle_flag == 1) {
-    // initialize coordinate direction
-    int axisx=0, axisy=1, axisz=2;
-    pmy_block->pcoord->AxisDirection(&axisx, &axisy, &axisz);
 
-    // in spherical polar coordinate
-    //  *axisx = 1;
-    //  *axisy = 2;
-    //  *axisz = 0;
-    // check the dimension of the problem
+  // require angle_flag = 1
+  if (angle_flag != 1) {
+    std::stringstream msg;
+    msg << "### FATAL ERROR in AngularGrid(nzeta, npsi)" << std::endl
+        << "This overload only handles angle_flag == 1, got: " << angle_flag
+        << std::endl;
+    ATHENA_ERROR(msg);
+  }
 
-    int n1z = pmb->ncells1, n2z = pmb->ncells2, n3z = pmb->ncells3;
+  // initialize coordinate directions
+  // IMPORTANT: if spherical polar, AxisDirection in
+  // src/coordinates/spherical_polar.cpp rewrites (*axisx, *axisy, *axisz) = (1, 2, 0)
+  int axisx=0, axisy=1, axisz=2;
+  pmy_block->pcoord->AxisDirection(&axisx, &axisy, &axisz);
 
-    int ndim = 1;
-    if (n2z > 1) ndim = 2;
-    if (n3z > 1) ndim = 3;
+  // Get number of cells (including ghost) and dimensions
+  int n1z = pmb->ncells1, n2z = pmb->ncells2, n3z = pmb->ncells3;
 
-    Real coszeta_max = 1.0;
-    if (polar_angle)
-      coszeta_max = ((Real)nang-2.0)/(Real)nang;
+  int ndim = 1;
+  if (n2z > 1) ndim = 2;
+  if (n3z > 1) ndim = 3;
 
-    // separate ghost zones and active zones
-    // so that they can be compatible with different angular schemes
-    if (nzeta > 0) {
-      coszeta_v.NewAthenaArray(2*nzeta);
-      zeta_v_full.NewAthenaArray(2*nzeta+2*NGHOST);
-      zeta_f_full.NewAthenaArray(2*nzeta+1+2*NGHOST);
-      dzeta_v.NewAthenaArray(2*nzeta+2*NGHOST);
-      dzeta_f.NewAthenaArray(2*nzeta+1+2*NGHOST);
-      coszeta_f.NewAthenaArray(2*nzeta+1);
-      len_zeta.NewAthenaArray(2*nzeta); // This id Delta (cos\theta)
+  // Define max of zeta grid
+  // if polar_angle, exclude poles since we will populate these later on
+  Real coszeta_max;
+  if (polar_angle) {
+    coszeta_max = ((Real)nang-2.0)/(Real)nang;
+  } else {
+    coszeta_max = 1.0;
+  }
 
-      int zs = 0; // ze = 2*nzeta - 1;
+  // sin(zeta) at cell centers, used when constructing mu below
+  AthenaArray<Real> sinzeta_v;
 
-      Real dcoszeta = coszeta_max/nzeta;
-      coszeta_f(zs) = coszeta_max;
-      for (int i=1; i<nzeta; ++i)
-        coszeta_f(i+zs) = coszeta_max - i *dcoszeta;
-      
-      coszeta_f(nzeta+zs) = 0.0;
-      for (int i=nzeta+1; i<2*nzeta+1; ++i)
-        coszeta_f(i+zs) = -coszeta_f(2*nzeta-i+zs);
+  // separate ghost zones and active zones
+  if (nzeta > 0) { // general case: gridding over zeta
+    // =======================
+    // ====== ZETA GRID ======
+    // =======================
 
-      for (int i=0; i<nzeta; ++i)
-        coszeta_v(i+zs) = 0.5*(coszeta_f(i+zs)+coszeta_f(i+zs+1));
-      
-      // re-normalize
-      Real normalization = 2*nzeta/std::sqrt(4*nzeta*nzeta-1);
+    // Compute equally-spaced FACE-CENTERED grid in cos(zeta) [angular grid in theta]
+    // write some distinguished values and assert symmetry upon reflection
+    // across equator to avoid roundoff-error-induced asymmetries
+    coszeta_f.NewAthenaArray(2*nzeta+1);
+    dcoszeta_f.NewAthenaArray(2*nzeta);
 
-      if (!polar_angle)
-        for (int i=0; i<nzeta; ++i)
-          coszeta_v(i+zs) *= normalization;
+    coszeta_f(0) = coszeta_max;        // north pole
+    coszeta_f(nzeta) = 0.0;            // equator
+    coszeta_f(2*nzeta) = -coszeta_max; // south pole
 
-      for (int i=nzeta; i<2*nzeta; ++i)
-        coszeta_v(i+zs) = -coszeta_v(2*nzeta-i-1+zs);
+    Real dcoszeta = coszeta_max/nzeta;
 
-      for (int i=0; i<nzeta*2; ++i)
-        len_zeta(i) = coszeta_f(i) - coszeta_f(i+1);
+    for (int i=1; i<nzeta; ++i) {
+      coszeta_f(i) = coszeta_max - i*dcoszeta; // upper hemisphere
+      coszeta_f(2*nzeta-i) = -coszeta_f(i);    // lower hemisphere
+    }
 
-      // the following arrays include ghost zones
-      // this is used for reconstruction
-      for (int i=0; i<2*nzeta; ++i)
-        zeta_v_full(i+NGHOST) = acos(coszeta_v(i));
+    // save face-centered grid spacings
+    for (int i=0; i<2*nzeta; ++i)
+      dcoszeta_f(i) = coszeta_f(i) - coszeta_f(i+1);
 
-      for (int i=0; i<2*nzeta+1; ++i)
-        zeta_f_full(i+NGHOST) = acos(coszeta_f(i));
 
-      for (int i=1; i<=NGHOST; ++i) {
-        Real delta = zeta_v_full(i+NGHOST) - zeta_v_full(NGHOST+i-1);
-        zeta_v_full(NGHOST-i) = zeta_v_full(NGHOST-i+1) - delta;
-      }
-      for (int i=1; i<=NGHOST; ++i) {
-        Real delta = zeta_v_full(2*nzeta+NGHOST-i) - zeta_v_full(2*nzeta+NGHOST-i-1);
-        zeta_v_full(2*nzeta+NGHOST+i-1) = zeta_v_full(2*nzeta+NGHOST+i-2) + delta;
-      }
+    // Compute CELL-CENTERED cos(zeta) grid by averaging face-centered values
 
-      for (int i=0; i<2*nzeta+2*NGHOST-1; ++i)
-        dzeta_v(i) = zeta_v_full(i+1) - zeta_v_full(i);
+    // if polar_angle is not enabled, the discrete <cos^2(zeta)> != 1/3 exactly
+    // apply a normalization to force it to be 1/3, to match isotropic limit
+    Real norm = polar_angle ? 1.0 : 2*nzeta/std::sqrt(4*nzeta*nzeta-1);
 
-      for (int i=0; i<2*nzeta+1; ++i)
-        zeta_f_full(i+NGHOST) = acos(coszeta_f(i));
+    coszeta_v.NewAthenaArray(2*nzeta);
 
-      for (int i=1; i<=NGHOST; ++i) {
-        Real delta = zeta_f_full(i+NGHOST) - zeta_f_full(NGHOST+i-1);
-        zeta_f_full(NGHOST-i) = zeta_f_full(NGHOST-i+1) - delta;
-      }
+    for (int i=0; i<nzeta; ++i) {
+      coszeta_v(i) = 0.5*(coszeta_f(i)+coszeta_f(i+1))*norm; // upper hemisphere
+      coszeta_v(2*nzeta-i-1) = -coszeta_v(i);                // lower hemisphere
+    }
 
-      for (int i=1; i<=NGHOST; ++i) {
-        Real delta = zeta_f_full(2*nzeta+NGHOST-i+1) - zeta_f_full(2*nzeta+NGHOST-i);
-        zeta_f_full(2*nzeta+NGHOST+i) = zeta_f_full(2*nzeta+NGHOST+i-1) + delta;
-      }
+    // also save sin(zeta) for convenience later
+    sinzeta_v.NewAthenaArray(2*nzeta);
+    for (int n=0; n<2*nzeta; ++n)
+      sinzeta_v(n) = std::sqrt(1.0 - coszeta_v(n)*coszeta_v(n));
 
-      for (int i=0; i<2*nzeta+2*NGHOST; ++i)
-        dzeta_f(i) = zeta_f_full(i+1)-zeta_f_full(i);
+    // Write CELL-CENTERED zeta values INCLUDING GHOST CELLS
+    // ghost zone values have same delta(zeta) as active cells closest to boundary
+    zeta_v_full.NewAthenaArray(2*nzeta+2*NGHOST);
+    dzeta_v_full.NewAthenaArray(2*nzeta+2*NGHOST);
 
-    // end if nzeta > 0
-    } else {
-      coszeta_v.NewAthenaArray(1);
-      zeta_v_full.NewAthenaArray(1);
-      zeta_f_full.NewAthenaArray(1);
-      dzeta_v.NewAthenaArray(1);
-      dzeta_f.NewAthenaArray(1);
-      coszeta_f.NewAthenaArray(1);
-      len_zeta.NewAthenaArray(1); // This id Delta (cos\theta)
+    for (int i=0; i<2*nzeta; ++i) // active cells
+      zeta_v_full(i+NGHOST) = acos(coszeta_v(i));
+    for (int i=1; i<= NGHOST; ++i) { // ghost cells
+      // below lower boundary
+      Real delta_lo = zeta_v_full(i+NGHOST) - zeta_v_full(NGHOST+i-1);
+      zeta_v_full(NGHOST-i) = zeta_v_full(NGHOST-i+1) - delta_lo;
 
-      coszeta_f(0) = coszeta_max;
-      coszeta_v(0) = coszeta_max;
+      // above upper boundary
+      Real delta_hi = zeta_v_full(2*nzeta+NGHOST-i) - zeta_v_full(2*nzeta+NGHOST-i-1);
+      zeta_v_full(2*nzeta+NGHOST+i-1) = zeta_v_full(2*nzeta+NGHOST+i-2) + delta_hi;
+    }
 
-      len_zeta(0) = coszeta_max;
+    // Compute delta(zeta) between neighboring cell-centered cells including ghost cells
+    for (int i=0; i<2*nzeta+2*NGHOST-1; ++i)
+      dzeta_v_full(i) = zeta_v_full(i+1) - zeta_v_full(i);
 
-      zeta_v_full(0) = 0.0;
-      zeta_f_full(0) = 0.0;
 
-      dzeta_v(0) = coszeta_max;
-      dzeta_f(0) = coszeta_max;
+    // Write FACE-CENTERED zeta values INCLUDING GHOST CELLS
+    // ghost zone values have same delta(zeta) as active cells closest to boundary
+    zeta_f_full.NewAthenaArray(2*nzeta+1+2*NGHOST);
+    dzeta_f_full.NewAthenaArray(2*nzeta+1+2*NGHOST);
+
+    for (int i=0; i<2*nzeta+1; ++i) // active cells
+      zeta_f_full(i+NGHOST) = acos(coszeta_f(i));
+    for (int i=1; i<=NGHOST; ++i) { // ghost zones
+      // below lower boundary
+      Real delta_lo = zeta_f_full(i+NGHOST) - zeta_f_full(NGHOST+i-1);
+      zeta_f_full(NGHOST-i) = zeta_f_full(NGHOST-i+1) - delta_lo;
+
+      // above upper boundary
+      Real delta_hi = zeta_f_full(2*nzeta+NGHOST-i+1) - zeta_f_full(2*nzeta+NGHOST-i);
+      zeta_f_full(2*nzeta+NGHOST+i) = zeta_f_full(2*nzeta+NGHOST+i-1) + delta_hi;
+    }
+
+    // Compute delta(zeta) between neighboring face-centered cells including ghost cells
+    for (int i=0; i<2*nzeta+2*NGHOST; ++i)
+      dzeta_f_full(i) = zeta_f_full(i+1)-zeta_f_full(i);
+  } else {
+    // (placeholder arrays) Special case: No gridding over zeta (only phi grid)
+    coszeta_v.NewAthenaArray(1);    coszeta_v(0) = coszeta_max;
+    zeta_v_full.NewAthenaArray(1);  zeta_v_full(0) = 0.0;
+    zeta_f_full.NewAthenaArray(1);  zeta_f_full(0) = 0.0;
+    dzeta_v_full.NewAthenaArray(1); dzeta_v_full(0) = coszeta_max;
+    dzeta_f_full.NewAthenaArray(1); dzeta_f_full(0) = coszeta_max;
+    coszeta_f.NewAthenaArray(1);    coszeta_f(0) = coszeta_max;
+    dcoszeta_f.NewAthenaArray(1);   dcoszeta_f(0) = coszeta_max;
+  }
+
+
+  // ======================
+  // ====== PSI GRID ======
+  // ======================
+
+  if (npsi > 0) { // for nontrivial psi grid
+    // Compute equally-spaced CELL-CENTERED psi grid (0 to 2 pi)
+    // force symmetry exactly to avoid asymmetries due to roundoff error
+    psi_v.NewAthenaArray(2*npsi);
+
+    Real dpsi = PI / npsi;
+
+    for (int i=0; i<npsi; ++i) {
+      psi_v(i) = (i+0.5)*dpsi; // psi from [0, PI)
+      psi_v(2*npsi-1-i) = 2.0*PI - psi_v(i); // [PI, 2 PI)
     }
 
 
-    // construct psi angles
-    // for 2D problem in spherical polar, npsi = 1
-    if (npsi > 0) {
-      psi_v.NewAthenaArray(2*npsi);
-      psi_f.NewAthenaArray(2*npsi+1);
-      sin_psi_f.NewAthenaArray(2*npsi+1);
-      len_psi.NewAthenaArray(2*npsi);
-      psi_v_full.NewAthenaArray(2*npsi+2*NGHOST);
-      psi_f_full.NewAthenaArray(2*npsi+1+2*NGHOST);
-      dpsi_v.NewAthenaArray(2*npsi+2*NGHOST);
-      dpsi_f.NewAthenaArray(2*npsi+2*NGHOST+1);
+    // Compute FACE-CENTERED psi grid
+    // write some distinguished values and assert symmetry upon reflection
+    // across psi = PI to avoid roundoff-error-induced asymmetries
+    psi_f.NewAthenaArray(2*npsi+1);
+    dpsi_f.NewAthenaArray(2*npsi);
 
-      Real dpsi=PI/npsi;
+    psi_f(0) = 0.0;
+    psi_f(npsi) = PI;
+    psi_f(2*npsi) = 2.0*PI;
+    for (int i=1; i<npsi; ++i) {
+      psi_f(i) = i*dpsi;                   // [0, PI)
+      psi_f(2*npsi-i) = 2.0*PI - psi_f(i); // (PI, 2 PI]
+    }
 
-      for (int i=0; i<npsi; ++i)
-        psi_v(i) = (i+0.5)*dpsi;
-      for (int i=npsi; i<2*npsi; ++i)
-        psi_v(i)=2.0*PI-psi_v(2*npsi-i-1);
+    // save face-centered grid spacings
+    for (int i=0; i<2*npsi; ++i)
+      dpsi_f(i) = psi_f(i+1) - psi_f(i);
 
-      psi_f(0) = 0.0;
-      for (int i=1; i<2*npsi; ++i)
-        psi_f(i)=2*psi_v(i-1) - psi_f(i-1);
-      psi_f(2*npsi) = 2*PI;
+    // compute face-centered sin(psi)
+    // overwrite some distinguished values to avoid roundoff error
+    sinpsi_f.NewAthenaArray(2*npsi+1);
 
-      for (int i=0; i<2*npsi+1; ++i)
-        sin_psi_f(i) = sin(psi_f(i));
-      sin_psi_f(0)        = 0.0;
-      sin_psi_f(npsi)     = 0.0;
-      sin_psi_f(2*npsi)   = 0.0;
+    for (int i=0; i<2*npsi+1; ++i)
+      sinpsi_f(i) = sin(psi_f(i));
+    sinpsi_f(0)      = 0.0;
+    sinpsi_f(npsi)   = 0.0;
+    sinpsi_f(2*npsi) = 0.0;
 
-      for (int i=0; i<2*npsi; ++i)
-        len_psi(i) = psi_f(i+1) - psi_f(i);
 
-      //  now the arrays with ghost zones
+    // Write CELL-CENTERED psi values INCLUDING GHOST CELLS
+    // ghost zone values have same delta(psi) as active cells closest to boundary
+    psi_v_full.NewAthenaArray(2*npsi+2*NGHOST);
+    dpsi_v_full.NewAthenaArray(2*npsi+2*NGHOST);
 
-      for (int i=0; i<2*npsi; ++i)
-        psi_v_full(i+NGHOST) = psi_v(i);
+    for (int i=0; i<2*npsi; ++i) // active cells
+      psi_v_full(i+NGHOST) = psi_v(i);
+    for (int i=1; i<=NGHOST; ++i) { // ghost cells (periodic -- wraps around)
+      psi_v_full(NGHOST-i) = psi_v(2*npsi-i) - 2.0*PI;
+      psi_v_full(2*npsi+NGHOST+i-1) = psi_v(i-1) + 2.0*PI;
+    }
 
-      for (int i=0; i<2*npsi+1; ++i)
-        psi_f_full(i+NGHOST) = psi_f(i);
+    // Compute delta(psi) between neighboring cell-centered cells including ghost cells
+    for (int i=0; i<2*npsi+2*NGHOST-1; ++i)
+      dpsi_v_full(i) = psi_v_full(i+1) - psi_v_full(i);
 
-      for (int i=1; i<=NGHOST; ++i)
-        psi_v_full(NGHOST-i) = psi_v(2*npsi-i)-2*PI;
 
-      for (int i=1; i<=NGHOST; ++i)
-        psi_v_full(2*npsi+NGHOST+i-1) = psi_v(i-1) + 2*PI;
+    // Write FACE-CENTERED psi values INCLUDING GHOST CELLS
+    // ghost zone values have same delta(psi) as active cells closest to boundary
+    psi_f_full.NewAthenaArray(2*npsi+1+2*NGHOST);
+    dpsi_f_full.NewAthenaArray(2*npsi+2*NGHOST+1);
 
-      for (int i=0; i<2*npsi+2*NGHOST-1; ++i)
-        dpsi_v(i) = psi_v_full(i+1) - psi_v_full(i);
+    for (int i=0; i<2*npsi+1; ++i) // active cells
+      psi_f_full(i+NGHOST) = psi_f(i);
+    for (int i=1; i<=NGHOST; ++i) { // ghost cells (periodic -- wraps around)
+      psi_f_full(NGHOST-i) = psi_f(2*npsi-i)-2.0*PI;
+      psi_f_full(2*npsi+NGHOST+i) = psi_f(i) + 2.0*PI;
+    }
 
-      for (int i=0; i<2*npsi+1; ++i)
-        psi_f_full(i+NGHOST) = psi_f(i);
+    // Compute delta(psi) between neighboring face-centered cells including ghost cells
+    for (int i=0; i<2*npsi+2*NGHOST; ++i)
+      dpsi_f_full(i) = psi_f_full(i+1)-psi_f_full(i);
+  }
 
-      for (int i=1; i<=NGHOST; ++i)
-        psi_f_full(NGHOST-i) = psi_f(2*npsi-i)-2*PI;
+  // =========================================
+  // ====== CONSTRUCT FULL ANGULAR GRID ======
+  // =========================================
 
-      for (int i=1; i<=NGHOST; ++i)
-        psi_f_full(2*npsi+NGHOST+i) = psi_f(i) + 2*PI;
+  // mu(x,k,j,i,n) : DIRECTIONAL cosines of angles, cosine wrt. positive coordinate axes
+  //  x: axis direction (e.g., axisz)
+  //  (k,j,i): spatial indices
+  //  n: angle index -- n = izeta*(2*npsi) + ipsi
 
-      for (int i=0; i<2*npsi+2*NGHOST; ++i)
-        dpsi_f(i) = psi_f_full(i+1)-psi_f_full(i);
+  bool spherical_polar = (std::strcmp(COORDINATE_SYSTEM, "spherical_polar") == 0);
 
-    } // end if npsi > 0
+  // 1D case: zeta grid only
+  if (ndim == 1) {
+    int x = 0; // only x direction allowed
+    int k = 0, j = 0; // all yz indices = 0
 
-    // for 1D problem
-    if (ndim == 1) {
-      for (int i=0; i<n1z; ++i) {
-         for (int n=0; n<2*nzeta; ++n) // x,k,j,i,n
-            mu(0,0,0,i,n) = coszeta_v(n);
-         
-         if (polar_angle) {
-           mu(0,0,0,i,2*nzeta) = 1.0;
-           mu(0,0,0,i,2*nzeta+1) = -1.0;
-         }
+    for (int i=0; i<n1z; ++i) { // cells
+      for (int n=0; n<2*nzeta; ++n)
+        mu(x,k,j,i,n) = coszeta_v(n);
+
+      // polar angles
+      if (polar_angle) {
+        mu(x,k,j,i,2*nzeta) = 1.0;
+        mu(x,k,j,i,2*nzeta+1) = -1.0;
       }
-    } else if (ndim == 2) {
+    }
+
+
+  // 2D special case: one psi point per half, xz plane
+  //  angles are: (+sinzeta_v, 0, coszeta) and (-sinzeta, 0, coszeta) for each zeta
+  } else if (ndim == 2 && npsi == 1) {
+    int k = 0; // z index = 0
+
+    for (int j=0; j<n2z; ++j) { // cells
+      for (int i=0; i<n1z; ++i) {
+        for (int n=0; n<2*nzeta; ++n) { // angles
+          // +sin(zeta) angle
+          mu(axisz,k,j,i,2*npsi*n) = coszeta_v(n);
+          mu(axisx,k,j,i,2*npsi*n) = sinzeta_v(n);
+
+          // -sin(zeta) angle
+          mu(axisz,k,j,i,2*npsi*n+1) = coszeta_v(n);
+          mu(axisx,k,j,i,2*npsi*n+1) = -sinzeta_v(n);
+        }
+
+        // polar angle
+        if (polar_angle) {
+          mu(axisz,k,j,i,nang-2) = 1.0;
+          mu(axisz,k,j,i,nang-1) = -1.0;
+          mu(axisx,k,j,i,nang-2) = 0.0;
+          mu(axisx,k,j,i,nang-1) = 0.0;
+        }
+      }
+    }
+
+
+  // 2D spherical polar case: still need 3D angular grid
+  } else if (ndim == 2 && npsi > 1 && spherical_polar) {
+    int k = 0; // z index = 0
+
+    for (int j=0; j<n2z; ++j) { // cells
+      for (int i=0; i<n1z; ++i) {
+        for (int n=0; n<2*nzeta; ++n) { // angles
+          for (int m=0; m<2*npsi; ++m) {
+            mu(axisx,k,j,i,2*npsi*n+m) = sinzeta_v(n) * cos(psi_v(m));
+            mu(axisy,k,j,i,2*npsi*n+m) = sinzeta_v(n) * sin(psi_v(m));
+            mu(axisz,k,j,i,2*npsi*n+m) = coszeta_v(n);
+          }
+        }
+
+        // polar angle
+        if (polar_angle) {
+          mu(axisz,k,j,i,nang-2) = 1.0;
+          mu(axisz,k,j,i,nang-1) = -1.0;
+          mu(axisx,k,j,i,nang-2) = 0.0;
+          mu(axisx,k,j,i,nang-1) = 0.0;
+          mu(axisy,k,j,i,nang-2) = 0.0;
+          mu(axisy,k,j,i,nang-1) = 0.0;
+        }
+      }
+    }
+
+
+  // 2D non-spherical-polar case: angular grid is 2D and restricted to xy plane
+  } else if (ndim == 2 && npsi > 1 && !spherical_polar) {
+    int k = 0; // z index = 0
+
+    for (int j=0; j<n2z; ++j) { // cells
+      for (int i=0; i<n1z; ++i) {
+        for (int m=0; m<2*npsi; ++m) { // angles
+          mu(axisx,k,j,i,m) = cos(psi_v(m));
+          mu(axisy,k,j,i,m) = sin(psi_v(m));
+        }
+
+        // polar angle
+        if (polar_angle) {
+          // +x pole
+          mu(axisx,k,j,i,nang-2) = 1.0;
+          mu(axisy,k,j,i,nang-2) = 0.0;
+
+          // -x pole
+          mu(axisx,k,j,i,nang-1) = -1.0;
+          mu(axisy,k,j,i,nang-1) = 0.0;
+        }
+      }
+    }
+
+  // 3D case: full 3D angular grid
+  } else if (ndim == 3) {
+    for (int k=0; k<n3z; ++k) { // cells
       for (int j=0; j<n2z; ++j) {
         for (int i=0; i<n1z; ++i) {
-          if (npsi == 1) {
-            for (int n=0; n<2*nzeta; ++n) {
-              for (int m=0; m<2*npsi; ++m) {
-                int ang_num = n*(2*npsi)+m;
-                Real sinzeta_v = std::sqrt(1.0 - coszeta_v(n)
-                                      * coszeta_v(n));
-                mu(axisz,0,j,i,ang_num) = coszeta_v(n);
-                if (m==0)
-                  mu(axisx,0,j,i,ang_num) = sinzeta_v;
-                else
-                  mu(axisx,0,j,i,ang_num) = -sinzeta_v;
-              }
-            }
-            if (polar_angle) {
-              mu(axisz,0,j,i,nang-2) = 1.0;
-              mu(axisz,0,j,i,nang-1) = -1.0;
-              mu(axisx,0,j,i,nang-2) = 0.0;
-              mu(axisx,0,j,i,nang-1) = 0.0;
-            }
-          } else { // the case in x -y plane
-            if (std::strcmp(COORDINATE_SYSTEM, "spherical_polar") == 0) {
-              // in spherical polar, 2D, we still need 3D angular grid
-              for (int n=0; n<2*nzeta; ++n) {
-                for (int m=0; m<2*npsi; ++m) {
-                  int ang_num = n*(2*npsi)+m;
-                  Real sinzeta_v = std::sqrt(1.0 - coszeta_v(n)
-                                      * coszeta_v(n));
-                  mu(axisx,0,j,i,ang_num) = sinzeta_v * cos(psi_v(m));
-                  mu(axisy,0,j,i,ang_num) = sinzeta_v * sin(psi_v(m));
-                  mu(axisz,0,j,i,ang_num) = coszeta_v(n);
-                }
-              }
-
-              if (polar_angle) {
-                mu(axisz,0,j,i,nang-2) = 1.0;
-                mu(axisz,0,j,i,nang-1) = -1.0;
-                mu(axisx,0,j,i,nang-2) = 0.0;
-                mu(axisx,0,j,i,nang-1) = 0.0;
-                mu(axisy,0,j,i,nang-2) = 0.0;
-                mu(axisy,0,j,i,nang-1) = 0.0;
-              }
-            } else {
-              for (int m=0; m<2*npsi; ++m) {
-                mu(0,0,j,i,m) = cos(psi_v(m));
-                mu(1,0,j,i,m) = sin(psi_v(m));
-              }
-              if (polar_angle) {
-                mu(0,0,j,i,nang-2) = 1.0;
-                mu(0,0,j,i,nang-1) = -1.0;
-                mu(1,0,j,i,nang-2) = 0.0;
-                mu(1,0,j,i,nang-1) = 0.0;
-              }
+          for (int n=0; n<2*nzeta; ++n) { // angles
+            for (int m=0; m<2*npsi; ++m) {
+              mu(axisx,k,j,i,2*npsi*n+m) = sinzeta_v(n) * cos(psi_v(m));
+              mu(axisy,k,j,i,2*npsi*n+m) = sinzeta_v(n) * sin(psi_v(m));
+              mu(axisz,k,j,i,2*npsi*n+m) = coszeta_v(n);
             }
           }
-        } // end i
-      } // end j
-    } else {
-      // 3D case
-      for (int k=0; k<n3z; ++k) {
-        for (int j=0; j<n2z; ++j) {
-          for (int i=0; i<n1z; ++i) {
-            for (int n=0; n<2*nzeta; ++n) {
-              for (int m=0; m<2*npsi; ++m) {
-                int ang_num = n*(2*npsi)+m;
-                Real sinzeta_v = std::sqrt(1.0 - coszeta_v(n)
-                                      * coszeta_v(n));
-                mu(axisx,k,j,i,ang_num) = sinzeta_v * cos(psi_v(m));
-                mu(axisy,k,j,i,ang_num) = sinzeta_v * sin(psi_v(m));
-                mu(axisz,k,j,i,ang_num) = coszeta_v(n);
-              }
-            }
-            if (polar_angle) {
-              mu(axisz,k,j,i,nang-2) = 1.0;
-              mu(axisz,k,j,i,nang-1) = -1.0;
-              mu(axisx,k,j,i,nang-2) = 0.0;
-              mu(axisx,k,j,i,nang-1) = 0.0;
-              mu(axisy,k,j,i,nang-2) = 0.0;
-              mu(axisy,k,j,i,nang-1) = 0.0;
-            }
+
+          // polar angle
+          if (polar_angle) {
+            mu(axisz,k,j,i,nang-2) = 1.0;
+            mu(axisz,k,j,i,nang-1) = -1.0;
+            mu(axisx,k,j,i,nang-2) = 0.0;
+            mu(axisx,k,j,i,nang-1) = 0.0;
+            mu(axisy,k,j,i,nang-2) = 0.0;
+            mu(axisy,k,j,i,nang-1) = 0.0;
           }
         }
       }
     }
-    // equal weight for all cases
-    for (int n=0; n<nang; ++n)
-      wmu(n) = 1.0/nang;
-    
-  } // end ang_flag==1
+  }
+
+  // assign angles equal weight (equal subtended solid angle) such that sum weights = 1
+  for (int n=0; n<nang; ++n)
+    wmu(n) = 1.0/nang;
 }
