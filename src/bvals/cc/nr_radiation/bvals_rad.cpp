@@ -190,6 +190,17 @@ void RadBoundaryVariable::SetBoundarySameLevel(Real *buf,
   else              sk = pmb->ks - NGHOST, ek = pmb->ks - 1;
 
   int p = 0;
+  // Claude: Polar neighbour: the sending block sits across the pole (at phi + pi), so
+  // its j order is reversed, hence the j loop running from ej down to sj. 'No need to
+  // flip' is true for angle_flag = 0, where an angle index is a fixed Cartesian
+  // direction.
+  //
+  // Claude: BUG (angle_flag = 1): angle indices are local (r, theta, phi) directions,
+  // and across the pole e_theta and e_phi both reverse, as the hydro
+  // flip_across_pole_hydro flags for v_theta and v_phi. The received rays need the
+  // relabel ipsi -> (ipsi + npsi) mod 2*npsi (izeta and the polar angles unchanged), as
+  // in polarwedge_rad.cpp. The same applies to SetBoundaryFromCoarser,
+  // SetBoundaryFromFiner and PolarBoundarySingleAzimuthalBlock below.
   // no need to flip for radiation
   if (nb.polar) {
     for (int k=sk; k<=ek; ++k) {
@@ -255,6 +266,8 @@ void RadBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   }
 
   int p = 0;
+  // Claude: Polar neighbour on a coarser level: same j reversal into the coarse buffer,
+  // and the same angle_flag = 1 BUG (no ipsi -> ipsi + npsi relabel).
   if (nb.polar) {
     for (int k=sk; k<=ek; ++k) {
       for (int j=ej; j>=sj; --j) {
@@ -327,6 +340,8 @@ void RadBoundaryVariable::SetBoundaryFromFiner(Real *buf, const NeighborBlock& n
   }
 
   int p = 0;
+  // Claude: Polar neighbour on a finer level: same j reversal, and the same angle_flag
+  // = 1 BUG.
   if (nb.polar) {
 //     Real sign=1.0;
 //      if (flip_across_pole_ != nullptr) sign = flip_across_pole_[n] ? -1.0 : 1.0;
@@ -353,6 +368,15 @@ void RadBoundaryVariable::SetBoundaryFromFiner(Real *buf, const NeighborBlock& n
 //! \fn void RadBoundaryVariable::PolarBoundarySingleAzimuthalBlock()
 // \brief polar boundary edge-case: single MeshBlock spans the entire azimuthal (x3) range
 
+// Claude: Special case of a polar boundary: one MeshBlock spans all of phi (nrbx3 == 1
+// at the root level), so the cells across the pole are in this same block, half a turn
+// away in phi. After the ghost cells are filled by the (periodic) neighbour exchange,
+// each polar ghost row is shifted by nx3/2 cells in k so that ghost cell (k, j) holds
+// the data from phi + pi. azimuthal_shift_rad_ is scratch space for one (j, i) row.
+//
+// Claude: BUG (angle_flag = 1): as in SetBoundarySameLevel, the rays also need the
+// relabel ipsi -> (ipsi + npsi) mod 2*npsi when crossing the pole; only the cells are
+// moved here.
 void RadBoundaryVariable::PolarBoundarySingleAzimuthalBlock() {
   MeshBlock *pmb = pmy_block_;
 
@@ -370,6 +394,10 @@ void RadBoundaryVariable::PolarBoundarySingleAzimuthalBlock() {
           }
           for (int k=pmb->ks-NGHOST; k<=pmb->ke+NGHOST; ++k) {
             int k_shift = k;
+            // Claude: k_shift = k + nx3/2 for the first half of the row and k - nx3/2
+            // for the second half, i.e. the cell half a turn away. The test uses
+            // nx3_half + NGHOST rather than ks + nx3_half, which is the same because ks
+            // == NGHOST.
             k_shift += (k < (nx3_half + NGHOST) ? 1 : -1) * nx3_half;
             for (int n=nl_; n<=nu_; ++n) {
               var(k,j,i,n) = azimuthal_shift_rad_(k_shift,n);
@@ -406,6 +434,11 @@ void RadBoundaryVariable::PolarBoundarySingleAzimuthalBlock() {
 //----------------------------------------------------------------------------------------
 //! \fn void RadBoundaryVariable::ApplyRadPhysicalBoundaries()
 // \brief Apply physical boundaries for specific intensities only
+// Claude: Applies the radiation physical boundaries only (no hydro), face by face in
+// the order x1, x2, x3, like BoundaryValues::ApplyPhysicalBoundaries. Each later
+// direction includes the ghost cells of the earlier ones (bis/bie, bjs/bje), so edges
+// and corners are filled. Called from the implicit radiation task list and from Mesh
+// initialisation.
 void RadBoundaryVariable::ApplyRadPhysicalBoundaries(const Real time, const Real dt) {
   MeshBlock *pmb = pmy_block_;
   Coordinates *pco = pmb->pcoord;
@@ -458,6 +491,10 @@ void RadBoundaryVariable::ApplyRadPhysicalBoundaries(const Real time, const Real
                             BoundaryFace::inner_x2, ph->w, pf->b, prad->ir);
     }
 
+    // Claude: rotate_theta == 1: after the inner x2 ghost cells are filled (normally by
+    // a periodic copy), relabel their rays; see rotate_rad.cpp. There is no outer x2
+    // counterpart. Like the other octant-based relabelling, this is wrong for
+    // angle_flag = 1.
     if ((NR_RADIATION_ENABLED || IM_RADIATION_ENABLED) &&
            (pbval->block_bcs[BoundaryFace::inner_x2] != BoundaryFlag::block)) {
       if (prad->rotate_theta == 1) {
@@ -484,6 +521,9 @@ void RadBoundaryVariable::ApplyRadPhysicalBoundaries(const Real time, const Real
                             BoundaryFace::inner_x3, ph->w, pf->b, prad->ir);
     }
 
+    // Claude: rotate_phi == 1 (pi/2 wedge) or 2 (pi wedge): relabel the rays in the x3
+    // ghost cells after the periodic copy. For angle_flag = 1 the periodic copy is
+    // already correct and this relabelling should be skipped; see rotate_rad.cpp.
     if ((NR_RADIATION_ENABLED || IM_RADIATION_ENABLED) &&
            (pbval->block_bcs[BoundaryFace::inner_x3] != BoundaryFlag::block)) {
       if (prad->rotate_phi == 1) {
@@ -514,6 +554,8 @@ void RadBoundaryVariable::ApplyRadPhysicalBoundaries(const Real time, const Real
 
 
 
+// Claude: Dispatch one face to its boundary routine based on block_bcs[face]. user BCs
+// call the enrolled function first, and then the switch below does nothing for them.
 void RadBoundaryVariable::SetRadPhysicalFunctions(
     MeshBlock *pmb, Coordinates *pco, Real time, Real dt,
     int il, int iu, int jl, int ju, int kl, int ku, int ngh,
@@ -633,6 +675,9 @@ void RadBoundaryVariable::SetRadPhysicalFunctions(
       }
       break;
     default:
+      // Claude: BUG: this builds msg_flag but then throws msg, which holds the 'face =
+      // BoundaryFace::undef' text from above. An unsupported boundary flag therefore
+      // reports the wrong error. Should be ATHENA_ERROR(msg_flag).
       std::stringstream msg_flag;
       msg_flag << "### FATAL ERROR in SetRadPhysicalBoundary" << std::endl
                << "No BoundaryPhysics function associated with provided\n"

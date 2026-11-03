@@ -18,6 +18,17 @@
 #include "./bvals_rad.hpp"
 
 
+// Claude: Overview. Outflow = zero gradient: every ghost cell gets a copy of the
+// boundary cell's intensity for every ray and frequency, with no change of angle index.
+// Since nothing is relabelled, this works for any angle layout. With angle_flag = 1 the
+// copy keeps the same LOCAL direction (same zeta, psi relative to the local axes),
+// which in spherical polar means the same angle to the radial direction: the natural
+// zero-gradient choice. Unlike the vacuum boundary, incoming rays are copied too, so
+// radiation can enter from outside.
+//
+// Claude: The octant diagram and the 'reflection' text below are copied from
+// reflect_rad.cpp and do not apply here; 'angles per octant' on nang is also wrong
+// (nang is the total).
 // The angular grid can change
 // The angular octant is
 //   1  |  0       5  |  4
@@ -43,6 +54,8 @@ void RadBoundaryVariable::OutflowInnerX1(Real time, Real dt, int il, int jl, int
     for (int j=jl; j<=ju; ++j) {
       for (int i=1; i<=ngh; ++i) {
         for (int ifr=0; ifr<nfreq; ++ifr) {
+          // Claude: Copy all nang angles of this frequency group from cell il into
+          // ghost cell il-i.
           for (int n=0; n<nang; ++n) {
             int ang=ifr*nang+n;
             (*var_cc)(k,j,il-i,ang) = (*var_cc)(k,j,il,ang);
@@ -69,6 +82,7 @@ void RadBoundaryVariable::OutflowOuterX1(Real time, Real dt, int iu, int jl, int
     for (int j=jl; j<=ju; ++j) {
       for (int i=1; i<=ngh; ++i) {
         for (int ifr=0; ifr<nfreq; ++ifr) {
+          // Claude: Copy all angles from cell iu into ghost cell iu+i.
           for (int n=0; n<nang; ++n) {
             int ang=ifr*nang+n;
             (*var_cc)(k,j,iu+i,ang) = (*var_cc)(k,j,iu,ang);
@@ -95,6 +109,7 @@ void RadBoundaryVariable::OutflowInnerX2(Real time, Real dt, int il, int iu, int
     for (int j=1; j<=ngh; ++j) {
       for (int i=il; i<=iu; ++i) {
         for (int ifr=0; ifr<nfreq; ++ifr) {
+          // Claude: Copy all angles from cell jl into ghost cell jl-j.
           for (int n=0; n<nang; ++n) {
             int ang=ifr*nang+n;
             (*var_cc)(k,jl-j,i,ang) = (*var_cc)(k,jl,i,ang);
@@ -121,6 +136,7 @@ void RadBoundaryVariable::OutflowOuterX2(Real time, Real dt, int il, int iu, int
     for (int j=1; j<=ngh; ++j) {
       for (int i=il; i<=iu; ++i) {
         for (int ifr=0; ifr<nfreq; ++ifr) {
+          // Claude: Copy all angles from cell ju into ghost cell ju+j.
           for(int n=0; n<nang; ++n) {
             int ang=ifr*nang+n;
             (*var_cc)(k,ju+j,i,ang) = (*var_cc)(k,ju,i,ang);
@@ -148,6 +164,7 @@ void RadBoundaryVariable::OutflowInnerX3(Real time, Real dt, int il, int iu, int
     for (int j=jl; j<=ju; ++j) {
       for (int i=il; i<=iu; ++i) {
         for (int ifr=0; ifr<nfreq; ++ifr) {
+          // Claude: Copy all angles from cell kl into ghost cell kl-k.
           for (int n=0; n<nang; ++n) {
             int ang=ifr*nang+n;
             (*var_cc)(kl-k,j,i,ang) = (*var_cc)(kl,j,i,ang);
@@ -160,6 +177,7 @@ void RadBoundaryVariable::OutflowInnerX3(Real time, Real dt, int il, int iu, int
 }
 
 //----------------------------------------------------------------------------------------
+// Claude: The \fn above says OutflowInnerX3; this is OutflowOuterX3.
 //! \fn void RadBoundaryVariable::OutflowInnerX3(
 //          Real time, Real dt, int il, int jl, int ju, int kl, int ku, int ngh)
 //  \brief Outflow boundary conditions, outer x3 boundary
@@ -175,6 +193,7 @@ void RadBoundaryVariable::OutflowOuterX3(Real time, Real dt, int il, int iu, int
     for (int j=jl; j<=ju; ++j) {
       for (int i=il; i<=iu; ++i) {
         for (int ifr=0; ifr<nfreq; ++ifr) {
+          // Claude: Copy all angles from cell ku into ghost cell ku+k.
           for (int n=0; n<nang; ++n) {
             int ang=ifr*nang+n;
             (*var_cc)(ku+k,j,i,ang) = (*var_cc)(ku,j,i,ang);

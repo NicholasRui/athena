@@ -24,6 +24,25 @@
 #include "../../../nr_radiation/radiation.hpp"
 #include "./bvals_rad.hpp"
 
+// Claude: Overview. These 'rotating' boundaries are for simulating only a wedge of the
+// sphere and filling its ghost cells from the other end of the domain by symmetry:
+// rotate_phi = 1 for a pi/2 wedge in phi, rotate_phi = 2 for a pi wedge in phi, and
+// rotate_theta = 1 at the inner x2 boundary. They run after the periodic copy has
+// filled the ghost cells, and relabel the rays so that each ray's direction is turned
+// along with the cell. Callers: ApplyPhysicalBoundaries (bvals.cpp),
+// ApplyRadPhysicalBoundaries (bvals_rad.cpp) and the coarse-level pass in
+// bvals_refine.cpp.
+//
+// Claude: Like reflect_rad.cpp, they work by permuting whole octant blocks, so they
+// assume the angle_flag = 0 layout: fixed Cartesian directions stored octant by octant.
+//
+// Claude: BUG (angle_flag = 1): with angle_flag = 1 the rays are defined relative to
+// the local r, theta, phi axes. A rotation about the polar axis carries the local axes
+// at phi onto the local axes at phi + delta, so for rotate_phi the periodic copy alone
+// is already correct, and these octant permutations scramble it. They also use
+// nang/noct, which means nothing in the angle_flag = 1 layout (see reflect_rad.cpp).
+// For angle_flag = 1 rotate_phi should do nothing to the angles, and rotate_theta needs
+// its own mapping in (izeta, ipsi).
 // The angular octant ( in x-y plane) is
 //   1  |  0       5  |  4
 //   -------      ---------
@@ -37,6 +56,9 @@
 // in radiation class, nang_per_oct is angles per octant, noct is the number of octant
 
 
+// Claude: Rotation by pi about the z axis for one cell and one frequency group, in the
+// z > 0 half only: (mu_x, mu_y) -> (-mu_x, -mu_y), i.e. octants 0 <-> 3 and 1 <-> 2.
+// Unused: nothing calls CopyIntensity2. The 'direction' argument is ignored.
 // Temporary function to copy intensity
 // swap 0 and 3, 1 and 2
 // change sign of both Fx and Fy
@@ -63,6 +85,11 @@ void CopyIntensity2(Real *ir, int nang_per_oct, int direction) {
   return;
 }
 
+// Claude: Rotation by pi about the z axis: (mu_x, mu_y) -> (-mu_x, -mu_y), i.e. octants
+// 0 <-> 3, 1 <-> 2 (z > 0) and 4 <-> 7, 5 <-> 6 (z < 0). Both sign flips are mirror
+// operations, so angle i of one octant maps to angle i of the other; and a rotation by
+// pi is its own inverse, so using the same swap at the inner and outer faces is
+// correct. 'direction' is ignored.
 void CopyIntensity3(Real *ir, int nang_per_oct, int direction) {
   // here ir is only intensity for each cell and each frequency band
   for (int n=0; n<nang_per_oct; ++n) {
@@ -100,6 +127,17 @@ void CopyIntensity3(Real *ir, int nang_per_oct, int direction) {
 //   -------      ---------
 //   3  |  2       7  |  6
 
+// Claude: Quarter turn about the z axis, as a 4-cycle of octants in each z half: new[0]
+// = old[2], new[2] = old[3], new[3] = old[1], new[1] = old[0] (and 4..7 likewise). With
+// the octant numbering above, that is the relabelling for a ray turned by +pi/2.
+//
+// Claude: SUSPECT (angle_flag = 0): 'direction' is ignored, and RotateHPi_InnerX3 and
+// RotateHPi_OuterX3 both call this with the same sense. The outer ghost cells hold data
+// copied from phi - pi/2 and the inner ones from phi + pi/2, so the two faces need
+// opposite rotations; one of them gets the wrong one. Also, a quarter turn swaps |mu_x|
+// and |mu_y|, which in general maps angle i of an octant to a DIFFERENT index of the
+// target octant, but this keeps i. That is only right if each octant's angles happen to
+// be ordered symmetrically under mu_x <-> mu_y.
 void CopyIntensity4(Real *ir, int nang_per_oct, int direction) {
   // here ir is only intensity for each cell and each frequency band
   for (int n=0; n<nang_per_oct; ++n) {
@@ -130,6 +168,9 @@ void CopyIntensity4(Real *ir, int nang_per_oct, int direction) {
   return;
 }
 
+// Claude: Used for rotate_theta at the inner x2 face. It swaps every octant with the
+// octant of opposite mu_z sign (0 <-> 4, 1 <-> 5, 2 <-> 6, 3 <-> 7), i.e. mu_z -> -mu_z
+// with the same index i inside the octant. 'direction' is ignored.
 void CopyIntensity5(Real *ir, int nang_per_oct, int direction) {
   // here ir is only intensity for each cell and each frequency band
   for (int n=0; n<nang_per_oct; ++n) {
@@ -147,6 +188,8 @@ void CopyIntensity5(Real *ir, int nang_per_oct, int direction) {
     ir[ang3] = temp;
   }
   for (int n=0; n<nang_per_oct; ++n) {
+    // Claude: This loop swaps 2 <-> 6 and 3 <-> 7; the comment on the next line
+    // describes a cycle 4 -> 5 -> 7 -> 6 that the code does not do.
     // from 4 to 5, 5 to 7, 7 to 6, 6 to 4
     int ang1 = 2 * nang_per_oct + n;
     int ang2 = 6 * nang_per_oct + n;
@@ -168,6 +211,8 @@ void CopyIntensity5(Real *ir, int nang_per_oct, int direction) {
 //                          int is, int ie, int js, int je, int ks, int ke)
 //  \brief ROTATE boundary conditions for x2, inner x2 boundary by Pi/2
 
+// Claude: Called only when rotate_theta == 1. Permutes the angles of every ghost cell
+// below jl in place, after the periodic copy has filled them.
 // anti-clockwise rotation
 // This function is used after periodic copy
 
@@ -197,6 +242,8 @@ void RadBoundaryVariable::RotateHPi_InnerX2(
 //                          int is, int ie, int js, int je, int ks, int ke)
 //  \brief  ROTATE boundary radiation conditions, outer x2 boundary
 
+// Claude: Not called anywhere: ApplyPhysicalBoundaries and ApplyRadPhysicalBoundaries
+// only ever call RotateHPi_InnerX2 for rotate_theta.
 void RadBoundaryVariable::RotateHPi_OuterX2(
     Real time, Real dt, int il, int iu, int ju, int kl, int ku, int ngh) {
   const int& noct = pmy_block_->pnrrad->noct;
@@ -223,6 +270,8 @@ void RadBoundaryVariable::RotateHPi_OuterX2(
 //                     int is, int ie, int js, int je, int ks, int ke)
 //  \brief ROTATE boundary conditions for x3, inner x3 boundary by Pi/2
 
+// Claude: rotate_phi == 1: quarter-turn relabelling of the ghost cells below kl. See
+// the SUSPECT note on CopyIntensity4 about the rotation sense.
 // anti-clockwise rotation
 // This function is used after periodic copy
 void RadBoundaryVariable::RotateHPi_InnerX3(
@@ -252,6 +301,8 @@ void RadBoundaryVariable::RotateHPi_InnerX3(
 //                     int is, int ie, int js, int je, int ks, int ke)
 //  \brief ROTATE boundary conditions for x3, outer x3 boundary by Pi/2
 
+// Claude: rotate_phi == 1: same CopyIntensity4 call as the inner face, so both faces
+// rotate the same way. See the SUSPECT note on CopyIntensity4.
 // anti-clockwise rotation
 // This function is used after periodic copy
 void RadBoundaryVariable::RotateHPi_OuterX3(
@@ -281,6 +332,7 @@ void RadBoundaryVariable::RotateHPi_OuterX3(
 //                     int is, int ie, int js, int je, int ks, int ke)
 //  \brief ROTATE boundary conditions for x3, inner x3 boundary by Pi
 
+// Claude: rotate_phi == 2: rotation by pi of the ghost cells below kl.
 // anti-clockwise rotation
 // This function is used after periodic copy
 
@@ -311,6 +363,8 @@ void RadBoundaryVariable::RotatePi_InnerX3(
 //                     int is, int ie, int js, int je, int ks, int ke)
 //  \brief ROTATE boundary conditions for x3, outer x3 boundary by Pi
 
+// Claude: rotate_phi == 2: rotation by pi of the ghost cells above ku (same swap is
+// correct).
 // anti-clockwise rotation
 // This function is used after periodic copy
 void RadBoundaryVariable::RotatePi_OuterX3(
