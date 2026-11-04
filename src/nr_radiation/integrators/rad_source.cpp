@@ -119,7 +119,7 @@ void RadIntegrator::CalSourceTerms(MeshBlock *pmb, const Real dt,
         ir_cm(n+ifr*nang) += divflux[n];
       }
       // add angular flux
-      if (prad->angle_flag == 1) {
+      if (prad->angle_flag == ANGLE_FLAG_COROTATING) {
         Real *p_angflx  = &(ang_flx_(k,j,i,ifr*nang));
         for (int n=0; n<nang; ++n) {
           ir_cm(n+ifr*nang) += p_angflx[n];
@@ -138,7 +138,7 @@ void RadIntegrator::CalSourceTerms(MeshBlock *pmb, const Real dt,
       implicit_coef_(n+ifr*nang) = 1.0;
       if (IM_RADIATION_ENABLED) {
         implicit_coef_(n+ifr*nang) += const_coef_(k,j,i,n+ifr*nang);
-        if (prad->angle_flag == 1) {
+        if (prad->angle_flag == ANGLE_FLAG_COROTATING) {
           implicit_coef_(n+ifr*nang) += imp_ang_coef_(k,j,i,n);
         }
       }
@@ -447,7 +447,7 @@ void RadIntegrator::GetHydroSourceTerms(MeshBlock *pmb,
             for (int n=0; n<nang; ++n) {
               Real ir_weight = p_ir0[n];
               ir_weight += divflx_(k,j,i,ifr*nang+n);
-              if (prad->angle_flag == 1) {
+              if (prad->angle_flag == ANGLE_FLAG_COROTATING) {
                 ir_weight += ang_flx_(k,j,i,ifr*nang+n);
                 ir_weight -= ((imp_ang_coef_(k,j,i,n))
                            * ir(k,j,i,ifr*nang+n));

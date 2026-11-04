@@ -790,7 +790,7 @@ void __attribute__((weak)) Coordinates::AxisDirection(int *axisx, int *axisy,
 
 void __attribute__((weak)) Coordinates::ZetaArea(NRRadiation *prad,
                                                  AthenaArray<Real> &area) {
-  if (prad->angle_flag == 1) {
+  if (prad->angle_flag == ANGLE_FLAG_COROTATING) {
     int nzeta = prad->nzeta;
     int npsi = prad->npsi;
     if (npsi * nzeta > 0) {
@@ -810,7 +810,7 @@ void __attribute__((weak)) Coordinates::ZetaArea(NRRadiation *prad,
 
 void __attribute__((weak)) Coordinates::PsiArea(NRRadiation *prad,
                                                 AthenaArray<Real> &area) {
-  if (prad->angle_flag == 1) {
+  if (prad->angle_flag == ANGLE_FLAG_COROTATING) {
     int nzeta = prad->nzeta;
     int npsi = prad->npsi;
     if (npsi * nzeta > 0) {
@@ -829,7 +829,7 @@ void __attribute__((weak)) Coordinates::PsiArea(NRRadiation *prad,
 
 void __attribute__((weak)) Coordinates::AngularVol(NRRadiation *prad,
                                                    AthenaArray<Real> &vol) {
-  if (prad->angle_flag == 1) {
+  if (prad->angle_flag == ANGLE_FLAG_COROTATING) {
     int nzeta = prad->nzeta;
     int npsi = prad->npsi;
     if (npsi * nzeta > 0) {

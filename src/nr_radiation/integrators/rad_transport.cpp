@@ -342,7 +342,8 @@ void RadIntegrator::CalculateFluxes(AthenaArray<Real> &w,
   }
 
   // calculate flux along angular direction
-  if ((prad->angle_flag == 1) && (prad->nzeta > 0) && (imp_ang_flx_ == 0)) {
+  if ((prad->angle_flag == ANGLE_FLAG_COROTATING) && (prad->nzeta > 0)
+      && (imp_ang_flx_ == 0)) {
     for (int k=ks; k<=ke; ++k) {
       for (int j=js; j<=je; ++j) {
         for (int i=is; i<=ie; ++i) {
@@ -401,7 +402,8 @@ void RadIntegrator::CalculateFluxes(AthenaArray<Real> &w,
   }
 
   // Now calculate psi flux
-  if ((prad->angle_flag == 1) && (prad->npsi > 0) && (imp_ang_flx_ == 0)) {
+  if ((prad->angle_flag == ANGLE_FLAG_COROTATING) && (prad->npsi > 0)
+      && (imp_ang_flx_ == 0)) {
     for (int k=ks; k<=ke; ++k) {
       for (int j=js; j<=je; ++j) {
         for (int i=is; i<=ie; ++i) {
@@ -762,7 +764,7 @@ void RadIntegrator::FluxDivergence(const Real wght, AthenaArray<Real> &ir_in,
       }
 
       // add angular flux
-      if ((prad->angle_flag == 1) && (imp_ang_flx_ == 0)) {
+      if ((prad->angle_flag == ANGLE_FLAG_COROTATING) && (imp_ang_flx_ == 0)) {
         for (int i=is; i<=ie; ++i) {
           for (int ifr=0; ifr<nfreq; ++ifr) {
             int nlimit = prad->nang;
@@ -821,7 +823,7 @@ void RadIntegrator::FluxDivergence(const Real wght, AthenaArray<Real> &ir_in,
       }
     }
   }
-  if (prad->angle_flag == 1 && (imp_ang_flx_ == 1)) {
+  if (prad->angle_flag == ANGLE_FLAG_COROTATING && (imp_ang_flx_ == 1)) {
     ImplicitAngularFluxesCoef(wght);
     for (int k=ks; k<=ke; ++k) {
       for (int j=js; j<=je; ++j) {

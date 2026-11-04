@@ -120,16 +120,16 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   nfre_ang = 0;
   if (NR_RADIATION_ENABLED || IM_RADIATION_ENABLED) {
     int nfreq = pin->GetOrAddInteger("radiation","n_frequency",1);
-    int nmu = pin->GetInteger("radiation","nmu");
-    int nzeta = pin->GetOrAddInteger("radiation","nzeta",0);
-    // total number of azimuthal angles covering 0 to pi
-    int npsi = pin->GetOrAddInteger("radiation","npsi",0);
-    int angle_flag = pin->GetOrAddInteger("radiation","angle_flag",0);
-    int polar_angle = pin->GetOrAddInteger("radiation","polar_angle",0);
-    int noct, nang_per_oct, nang;
-    NRRadiation::GetNumAnglesAndOctants(angle_flag, ndim, polar_angle,
-        nmu, nzeta, npsi, COORDINATE_SYSTEM,
-        noct, nang_per_oct, nang);
+    int angle_flag, nmu, nzeta, npsi, polar_angle;
+    NRRadiation::ReadAngleGridParameters(pin, ndim, angle_flag, nmu, nzeta, npsi,
+                                         polar_angle);
+    int noct, nang;
+    if (angle_flag == ANGLE_FLAG_COROTATING) {
+      NRRadiation::GetNumAnglesRotating(angle_flag, ndim, polar_angle, nzeta, npsi,
+          COORDINATE_SYSTEM, nang);
+    } else {
+      NRRadiation::GetNumAnglesAndOctantsLab(angle_flag, ndim, nmu, noct, nang);
+    }
     nfre_ang = nang * nfreq;
   }
   //========================================================
@@ -289,16 +289,16 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 
   if (NR_RADIATION_ENABLED || IM_RADIATION_ENABLED) {
     int nfreq = pin->GetOrAddInteger("radiation","n_frequency",1);
-    int nmu = pin->GetInteger("radiation","nmu");
-    int nzeta = pin->GetOrAddInteger("radiation","nzeta",0);
-    // total number of azimuthal angles covering 0 to pi
-    int npsi = pin->GetOrAddInteger("radiation","npsi",0);
-    int angle_flag = pin->GetOrAddInteger("radiation","angle_flag",0);
-    int polar_angle = pin->GetOrAddInteger("radiation","polar_angle",0);
-    int noct, nang_per_oct, nang;
-    NRRadiation::GetNumAnglesAndOctants(angle_flag, ndim, polar_angle,
-        nmu, nzeta, npsi, COORDINATE_SYSTEM,
-        noct, nang_per_oct, nang);
+    int angle_flag, nmu, nzeta, npsi, polar_angle;
+    NRRadiation::ReadAngleGridParameters(pin, ndim, angle_flag, nmu, nzeta, npsi,
+                                         polar_angle);
+    int noct, nang;
+    if (angle_flag == ANGLE_FLAG_COROTATING) {
+      NRRadiation::GetNumAnglesRotating(angle_flag, ndim, polar_angle, nzeta, npsi,
+          COORDINATE_SYSTEM, nang);
+    } else {
+      NRRadiation::GetNumAnglesAndOctantsLab(angle_flag, ndim, nmu, noct, nang);
+    }
     nfre_ang = nang * nfreq;
   }
 

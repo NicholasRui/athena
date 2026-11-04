@@ -88,7 +88,7 @@ void IMRadiation::Iteration(
       prad->pradintegrator->FirstOrderFluxDivergenceCoef(wght);
 
       // prepare coefficients for angular fluxes
-      if (prad->angle_flag == 1) {
+      if (prad->angle_flag == ANGLE_FLAG_COROTATING) {
         prad->pradintegrator->ImplicitAngularFluxesCoef(wght);
       }
 

@@ -72,7 +72,7 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
   if (n2z > 1) ndim = 2;
   if (n3z > 1) ndim = 3;
 
-  if (angle_flag == 0) {
+  if (angle_flag == ANGLE_FLAG_LAB_DAVIS) {
     if (ndim > 1) {
       Real deltamu = 2.0 / (2 * nmu - 1);
       mu2tmp(0) = 1.0 / (3.0 * (2 * nmu - 1));
@@ -230,7 +230,7 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
         wmu(i) *= 0.125;
       
     } // end nDIM = 3
-  } else if (angle_flag == 10) {
+  } else if (angle_flag == ANGLE_FLAG_LAB_MAGIC) {
     if ((ndim == 1) || (ndim == 3)) {
       msg <<"[Warning]: ang_quad = 10 should be used" <<
       "only for 2D problems. \n" << std::endl;
@@ -290,16 +290,18 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
 // This is the so-called spherical polar tetrad,
 // which is ideal for spherical polar coordinates
 
-// This is the angle_flag == 1 case and follows Jiang 2022, ApJS 263, 4
+// This is the angle_flag == ANGLE_FLAG_COROTATING (angle_grid_type = rotating) case
+// and follows Jiang 2022, ApJS 263, 4
 
 void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
   MeshBlock *pmb=pmy_block;
 
-  // require angle_flag = 1
-  if (angle_flag != 1) {
+  // require angle_flag = ANGLE_FLAG_COROTATING
+  if (angle_flag != ANGLE_FLAG_COROTATING) {
     std::stringstream msg;
     msg << "### FATAL ERROR in AngularGrid(nzeta, npsi)" << std::endl
-        << "This overload only handles angle_flag == 1, got: " << angle_flag
+        << "This overload only handles angle_grid_type = rotating (angle_flag = "
+        << ANGLE_FLAG_COROTATING << "), got angle_flag = " << angle_flag
         << std::endl;
     ATHENA_ERROR(msg);
   }

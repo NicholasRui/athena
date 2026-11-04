@@ -246,7 +246,7 @@ RadIntegrator::RadIntegrator(NRRadiation *prad, ParameterInput *pin) {
   imp_ang_psi_r_.NewAthenaArray(ncells3,ncells2,ncells1,prad->n_fre_ang);
   imp_ang_psi_l_.NewAthenaArray(ncells3,ncells2,ncells1,prad->n_fre_ang);
 
-  if (prad->angle_flag == 1) {
+  if (prad->angle_flag == ANGLE_FLAG_COROTATING) {
     const int& nzeta = prad->nzeta;
     const int& npsi = prad->npsi;
     if (nzeta > 0) {

@@ -38,6 +38,11 @@ enum {IER=0, IFR1=1, IFR2=2, IFR3=3, IPR11=4, IPR22=5, IPR33=6, IPR12=7,
 
 enum {OPAS=0, OPAA=1, OPAP=2}; // scattering, absorption, Planck, opacity
 
+// angle_flag values, set from <radiation> angle_grid_type (or deprecated angle_flag)
+constexpr int ANGLE_FLAG_LAB_DAVIS = 0;    // angle_grid_type = lab_davis
+constexpr int ANGLE_FLAG_COROTATING = 1;   // angle_grid_type = rotating
+constexpr int ANGLE_FLAG_LAB_MAGIC = 10;   // angle_grid_type = lab_magic
+
 class NRRadiation {
   friend class RadIntegrator;
   friend class Mesh;
@@ -78,6 +83,8 @@ class NRRadiation {
   int nang, noct, n_fre_ang; // n_fre_ang=nang*nfreq
   int angle_flag;
   int polar_angle;
+  // number of angles per octant parameter for lab_davis and lab_magic
+  int nmu;
   // variables related to the angular space transport
   int nzeta, npsi;
   AthenaArray<Real> coszeta_v, zeta_v_full, zeta_f_full, dzeta_v_full, dzeta_f_full,
@@ -85,11 +92,20 @@ class NRRadiation {
   AthenaArray<Real> psi_v, psi_f, dpsi_f, psi_v_full, psi_f_full,
                     dpsi_v_full, dpsi_f_full, sinpsi_f, cot_theta;
 
-  // assign number of angles, angles/octant, and octants
+  // read and validate angle_grid_type (or deprecated angle_flag), nmu, nzeta, npsi,
+  // polar_angle into the reference arguments; unused parameters are returned as 0
   // static so MeshBlock can call it before NRRadiation is constructed
-  static void GetNumAnglesAndOctants(int angle_flag, int ndim, int polar_angle,
-      int nmu, int nzeta, int npsi, const char* coord,
-      int &noct, int &nang_per_oct, int &nang);
+  static void ReadAngleGridParameters(ParameterInput *pin, int ndim, int &angle_flag,
+      int &nmu, int &nzeta, int &npsi, int &polar_angle);
+
+  // number of angles (and octants, for lab-frame grids)
+  // static so MeshBlock can call them before NRRadiation is constructed
+  // lab_davis / lab_magic: octant-major layout, nang = noct * angles per octant
+  static void GetNumAnglesAndOctantsLab(int angle_flag, int ndim, int nmu,
+      int &noct, int &nang);
+  // rotating: no octants
+  static void GetNumAnglesRotating(int angle_flag, int ndim, int polar_angle,
+      int nzeta, int npsi, const char* coord, int &nang);
 
   // The frequency grid
   Real nu_min, nu_max;

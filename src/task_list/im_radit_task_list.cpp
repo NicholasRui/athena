@@ -124,7 +124,7 @@ TaskStatus IMRadITTaskList::AddFluxAndSourceTerms(MeshBlock *pmb) {
           prad->pradintegrator->FirstOrderFluxDivergence(k, j, i,
                                                          prad->ir_old);
           // add angular flux
-          if (prad->angle_flag == 1) {
+          if (prad->angle_flag == ANGLE_FLAG_COROTATING) {
             prad->pradintegrator->ImplicitAngularFluxes(k,j,i,prad->ir);
           }
           // add the source terms together
@@ -142,7 +142,7 @@ TaskStatus IMRadITTaskList::AddFluxAndSourceTerms(MeshBlock *pmb) {
             prad->pradintegrator->FirstOrderFluxDivergence(k, j, i,
                                                            prad->ir);
             // add angular flux
-            if (prad->angle_flag == 1) {
+            if (prad->angle_flag == ANGLE_FLAG_COROTATING) {
               prad->pradintegrator->ImplicitAngularFluxes(k,j,i,prad->ir);
             }
             // add the source terms together
@@ -162,7 +162,7 @@ TaskStatus IMRadITTaskList::AddFluxAndSourceTerms(MeshBlock *pmb) {
                                                            prad->ir);
 
             // add angular flux
-            if (prad->angle_flag == 1) {
+            if (prad->angle_flag == ANGLE_FLAG_COROTATING) {
               prad->pradintegrator->ImplicitAngularFluxes(k,j,i,prad->ir);
             }
 
