@@ -47,6 +47,13 @@ void RadBoundaryVariable::PolarWedgeInnerX2(
         // frequency group) of the cell.
         for (int n=0; n<=nu_; ++n) {
           (*var_cc)(k,jl-j,i,n) = (*var_cc)(k,jl+j-1,i,n);
+          // Claude FIX (angle_flag = 1): take the mirror cell's ray across the pole
+          // instead of the line above (RotatingPoleAngle is in bvals_rad.cpp):
+          // int nang = pmy_block_->pnrrad->nang;
+          // int m = n;
+          // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING)
+          //   m = (n/nang)*nang + RotatingPoleAngle(n % nang);
+          // (*var_cc)(k,jl-j,i,n) = (*var_cc)(k,jl+j-1,i,m);
         }
       }
     }
@@ -69,6 +76,12 @@ void RadBoundaryVariable::PolarWedgeOuterX2(
 #pragma omp simd
         for (int n=0; n<=nu_; ++n) {
           (*var_cc)(k,ju+j,i,n) = (*var_cc)(k,ju-j+1,i,n);
+          // Claude FIX (angle_flag = 1): as for the inner x2 face
+          // int nang = pmy_block_->pnrrad->nang;
+          // int m = n;
+          // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING)
+          //   m = (n/nang)*nang + RotatingPoleAngle(n % nang);
+          // (*var_cc)(k,ju+j,i,n) = (*var_cc)(k,ju-j+1,i,m);
         }
       }
     }

@@ -140,6 +140,30 @@ void CopyIntensity3(Real *ir, int nang_per_oct, int direction) {
 // be ordered symmetrically under mu_x <-> mu_y.
 void CopyIntensity4(Real *ir, int nang_per_oct, int direction) {
   // here ir is only intensity for each cell and each frequency band
+  // Claude FIX (rotation sense): the cycle below is new[o] = old[R(-pi/2) o], which is
+  // right for the OUTER x3 ghost cells (they hold data from phi - pi/2). The inner ghost
+  // cells (data from phi + pi/2) need the opposite cycle. Call this with direction = -1
+  // from RotateHPi_InnerX3 and add, here:
+  // if (direction < 0) {
+  //   for (int n=0; n<nang_per_oct; ++n) {
+  //     for (int h=0; h<=4; h+=4) { // z > 0 half, then z < 0 half
+  //       int ang0 = (h+0)*nang_per_oct + n, ang1 = (h+1)*nang_per_oct + n;
+  //       int ang2 = (h+2)*nang_per_oct + n, ang3 = (h+3)*nang_per_oct + n;
+  //       // new[0] = old[1], new[1] = old[3], new[3] = old[2], new[2] = old[0]
+  //       Real temp = ir[ang0];
+  //       ir[ang0] = ir[ang1];
+  //       ir[ang1] = ir[ang3];
+  //       ir[ang3] = ir[ang2];
+  //       ir[ang2] = temp;
+  //     }
+  //   }
+  //   return;
+  // }
+  // Claude: Not fixed by the above: a quarter turn swaps |mu_x| and |mu_y|, so angle n
+  // of one octant maps to the angle n' of the target octant with mutmp(n',0) =
+  // mutmp(n,1) and mutmp(n',1) = mutmp(n,0) (AngularGrid(angle_flag, nmu)). Fixing that
+  // needs a permutation table built in AngularGrid and used for 'n' on the right-hand
+  // sides above.
   for (int n=0; n<nang_per_oct; ++n) {
     // from 0 to 1, 1 to 3, 3 to 2, 2 to 0
     int ang1 = 0 * nang_per_oct + n;
@@ -218,6 +242,12 @@ void CopyIntensity5(Real *ir, int nang_per_oct, int direction) {
 
 void RadBoundaryVariable::RotateHPi_InnerX2(
     Real time, Real dt, int il, int iu, int jl, int kl, int ku, int ngh) {
+  // Claude FIX (angle_flag = 1), UNVERIFIED: if rotate_theta is a rotation within the
+  // meridian plane, and the ghost-cell rays are in the continued (theta < 0) frame the
+  // transport uses there, then that rotation carries the local axes onto themselves
+  // and the periodic copy is already correct, as for rotate_phi:
+  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) return;
+  // Check the rotate_theta geometry before using this.
   // copy radiation variables into ghost zones
   const int& noct = pmy_block_->pnrrad->noct;
   int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
@@ -276,6 +306,10 @@ void RadBoundaryVariable::RotateHPi_OuterX2(
 // This function is used after periodic copy
 void RadBoundaryVariable::RotateHPi_InnerX3(
     Real time, Real dt, int il, int iu, int jl, int ju, int kl, int ngh) {
+  // Claude FIX (angle_flag = 1): rays are local (r, theta, phi) directions, which a
+  // rotation about the polar axis carries onto themselves, so the periodic copy is
+  // already correct. Skip the octant permutation:
+  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) return;
   // copy radiation variables into ghost zones
   const int& noct = pmy_block_->pnrrad->noct;
   int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
@@ -288,6 +322,8 @@ void RadBoundaryVariable::RotateHPi_InnerX3(
           AthenaArray<Real> &var = *var_cc;
           Real *ir = &var(kl-k,j,i,ifr*pmy_block_->pnrrad->nang);
           CopyIntensity4(ir, nang_per_oct, 1);
+          // Claude FIX (rotation sense): replace the line above with
+          // CopyIntensity4(ir, nang_per_oct, -1);
         }
       }
     }
@@ -307,6 +343,10 @@ void RadBoundaryVariable::RotateHPi_InnerX3(
 // This function is used after periodic copy
 void RadBoundaryVariable::RotateHPi_OuterX3(
     Real time, Real dt, int il, int iu, int jl, int ju, int ku, int ngh) {
+  // Claude FIX (angle_flag = 1): rays are local (r, theta, phi) directions, which a
+  // rotation about the polar axis carries onto themselves, so the periodic copy is
+  // already correct. Skip the octant permutation:
+  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) return;
   // copy radiation variables into ghost zones
   const int& noct = pmy_block_->pnrrad->noct;
   int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
@@ -338,6 +378,10 @@ void RadBoundaryVariable::RotateHPi_OuterX3(
 
 void RadBoundaryVariable::RotatePi_InnerX3(
     Real time, Real dt, int il, int iu, int jl, int ju, int kl, int ngh) {
+  // Claude FIX (angle_flag = 1): rays are local (r, theta, phi) directions, which a
+  // rotation about the polar axis carries onto themselves, so the periodic copy is
+  // already correct. Skip the octant permutation:
+  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) return;
   // copy radiation variables into ghost zones
   const int& noct = pmy_block_->pnrrad->noct;
   int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
@@ -369,6 +413,10 @@ void RadBoundaryVariable::RotatePi_InnerX3(
 // This function is used after periodic copy
 void RadBoundaryVariable::RotatePi_OuterX3(
     Real time, Real dt, int il, int iu, int jl, int ju, int ku, int ngh) {
+  // Claude FIX (angle_flag = 1): rays are local (r, theta, phi) directions, which a
+  // rotation about the polar axis carries onto themselves, so the periodic copy is
+  // already correct. Skip the octant permutation:
+  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) return;
   // copy radiation variables into ghost zones
   const int& noct = pmy_block_->pnrrad->noct;
   int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant

@@ -144,6 +144,15 @@ class RadBoundaryVariable : public CellCenteredBoundaryVariable {
 
   void PolarBoundarySingleAzimuthalBlock() override;
 
+  // Claude FIX: angle index maps for angle_grid_type = rotating, used by the
+  // commented-out fixes in reflect_rad.cpp, polarwedge_rad.cpp and bvals_rad.cpp.
+  // Definitions (also commented out) are in bvals_rad.cpp.
+  // int RotatingFlipAxisZ(int n);
+  // int RotatingFlipAxisX(int n);
+  // int RotatingFlipAxisY(int n);
+  // int RotatingReflectAngle(int n, int dir);
+  // int RotatingPoleAngle(int n);
+
   // shearing box functions
   void LoadShearingBoxBoundarySameLevel(AthenaArray<Real> &src, Real *buf, int nb);
   void SetShearingBoxBoundarySameLevel(AthenaArray<Real> &src,

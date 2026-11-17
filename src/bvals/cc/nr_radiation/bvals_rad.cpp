@@ -167,6 +167,86 @@ void RadBoundaryVariable::SetBoundaries() {
   return;
 }
 
+//----------------------------------------------------------------------------------------
+// Claude FIX: angle index maps for angle_grid_type = rotating (angle_flag =
+// ANGLE_FLAG_COROTATING). Not compiled; uncomment together with the declarations in
+// bvals_rad.hpp to use the commented-out fixes in reflect_rad.cpp, polarwedge_rad.cpp
+// and below.
+//
+// Layout (AngularGrid(angle_flag, nzeta, npsi)), within one frequency group:
+//   n = izeta*nps + ipsi, nps = 2*npsi (1 if npsi == 0), izeta < 2*nzeta
+//   (izeta = 0 if nzeta == 0)
+//   mu(axisz) = cos(zeta), mu(axisx) = sin(zeta)*cos(psi), mu(axisy) = sin(zeta)*sin(psi)
+//   with psi_v(m) = (m+0.5)*pi/npsi, so psi -> pi-psi, -psi, psi+pi are integer maps.
+// Exceptions handled below:
+//   1D:               mu is along x1 only (n = izeta); polar angles along +/- x1
+//   2D, npsi == 1:    mu(axisx) = +/-sin(zeta) for ipsi = 0/1, mu(axisy) = 0
+//   2D non-spherical, nzeta == 0: zeta = pi/2 (mu(axisz) = 0); polar angles along
+//                     +/- axisx instead of +/- axisz
+// Each function returns the index (within one frequency group) of the ray whose
+// direction is the image of ray n. All of them are their own inverse.
+// NOTE: the 2D non-spherical case with nzeta > 0 and npsi > 1 is not handled, since
+// AngularGrid does not fill that layout correctly either.
+//
+// // mu(axisz) -> -mu(axisz): zeta -> pi - zeta
+// int RadBoundaryVariable::RotatingFlipAxisZ(int n) {
+//   NRRadiation *prad = pmy_block_->pnrrad;
+//   int nang = prad->nang, nzeta = prad->nzeta, npsi = prad->npsi;
+//   if (prad->polar_angle && n >= nang-2) {
+//     if (nzeta == 0) return n;                     // polar angles along +/- axisx
+//     return (n == nang-2) ? nang-1 : nang-2;
+//   }
+//   if (nzeta == 0) return n;                       // mu(axisz) = 0
+//   int nps = (npsi > 0) ? 2*npsi : 1;
+//   int izeta = n / nps, ipsi = n % nps;
+//   return (2*nzeta-1-izeta)*nps + ipsi;
+// }
+//
+// // mu(axisx) -> -mu(axisx): psi -> pi - psi
+// int RadBoundaryVariable::RotatingFlipAxisX(int n) {
+//   NRRadiation *prad = pmy_block_->pnrrad;
+//   int nang = prad->nang, nzeta = prad->nzeta, npsi = prad->npsi;
+//   bool is_2d = (pmy_block_->block_size.nx2 > 1 && pmy_block_->block_size.nx3 == 1);
+//   if (prad->polar_angle && n >= nang-2) {
+//     if (nzeta == 0) return (n == nang-2) ? nang-1 : nang-2; // along +/- axisx
+//     return n;
+//   }
+//   if (npsi == 0) return n;                        // 1D: no transverse component
+//   int nps = 2*npsi;
+//   int izeta = n / nps, ipsi = n % nps;
+//   if (is_2d && npsi == 1) return izeta*nps + (1 - ipsi);
+//   return izeta*nps + (npsi-1-ipsi + nps) % nps;
+// }
+//
+// // mu(axisy) -> -mu(axisy): psi -> -psi
+// int RadBoundaryVariable::RotatingFlipAxisY(int n) {
+//   NRRadiation *prad = pmy_block_->pnrrad;
+//   int nang = prad->nang, npsi = prad->npsi;
+//   bool is_2d = (pmy_block_->block_size.nx2 > 1 && pmy_block_->block_size.nx3 == 1);
+//   if (prad->polar_angle && n >= nang-2) return n; // never along axisy
+//   if (npsi == 0 || (is_2d && npsi == 1)) return n; // mu(axisy) = 0
+//   int nps = 2*npsi;
+//   int izeta = n / nps, ipsi = n % nps;
+//   return izeta*nps + (nps-1-ipsi);
+// }
+//
+// // reflect across a face normal to x(dir+1), dir = 0, 1, 2: flip the mu component
+// // along that coordinate direction (AxisDirection gives which of axisx/y/z it is)
+// int RadBoundaryVariable::RotatingReflectAngle(int n, int dir) {
+//   if (pmy_block_->block_size.nx2 == 1) return RotatingFlipAxisZ(n); // 1D: along x1
+//   int axisx = 0, axisy = 1, axisz = 2;
+//   pmy_block_->pcoord->AxisDirection(&axisx, &axisy, &axisz);
+//   if (dir == axisz) return RotatingFlipAxisZ(n);
+//   if (dir == axisx) return RotatingFlipAxisX(n);
+//   return RotatingFlipAxisY(n);
+// }
+//
+// // crossing the pole of a spherical polar grid: e_theta (axisx) and e_phi (axisy)
+// // both reverse, e_r (axisz) does not, i.e. psi -> psi + pi
+// int RadBoundaryVariable::RotatingPoleAngle(int n) {
+//   return RotatingFlipAxisX(RotatingFlipAxisY(n));
+// }
+
 
 //----------------------------------------------------------------------------------------
 //! \fn void RadBoundaryVariable::SetBoundarySameLevel(Real *buf,
@@ -209,6 +289,14 @@ void RadBoundaryVariable::SetBoundarySameLevel(Real *buf,
 #pragma omp simd linear(p)
           for (int n=nl_; n<=nu_; ++n) {
             var(k,j,i,n) = buf[p++];
+            // Claude FIX (angle_flag = 1): store each received ray under its index
+            // across the pole instead of the line above (and drop the omp simd, since
+            // the store is no longer contiguous):
+            // int nang = pmy_block_->pnrrad->nang;
+            // int m = n;
+            // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING)
+            //   m = (n/nang)*nang + RotatingPoleAngle(n % nang);
+            // var(k,j,i,m) = buf[p++];
           }
         }
       }
@@ -275,6 +363,12 @@ void RadBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
 #pragma omp simd linear(p)
           for (int n=nl_; n<=nu_; ++n) {
             coarse_var(k,j,i,n) = buf[p++];
+            // Claude FIX (angle_flag = 1): as in SetBoundarySameLevel
+            // int nang = pmy_block_->pnrrad->nang;
+            // int m = n;
+            // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING)
+            //   m = (n/nang)*nang + RotatingPoleAngle(n % nang);
+            // coarse_var(k,j,i,m) = buf[p++];
           }
         }
       }
@@ -351,6 +445,12 @@ void RadBoundaryVariable::SetBoundaryFromFiner(Real *buf, const NeighborBlock& n
 #pragma omp simd linear(p)
           for (int n=nl_; n<=nu_; ++n) {
             var(k,j,i,n) = buf[p++];
+            // Claude FIX (angle_flag = 1): as in SetBoundarySameLevel
+            // int nang = pmy_block_->pnrrad->nang;
+            // int m = n;
+            // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING)
+            //   m = (n/nang)*nang + RotatingPoleAngle(n % nang);
+            // var(k,j,i,m) = buf[p++];
           }
         }
       }
@@ -401,6 +501,12 @@ void RadBoundaryVariable::PolarBoundarySingleAzimuthalBlock() {
             k_shift += (k < (nx3_half + NGHOST) ? 1 : -1) * nx3_half;
             for (int n=nl_; n<=nu_; ++n) {
               var(k,j,i,n) = azimuthal_shift_rad_(k_shift,n);
+              // Claude FIX (angle_flag = 1): also relabel the rays across the pole
+              // int nang = pmy_block_->pnrrad->nang;
+              // int m = n;
+              // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING)
+              //   m = (n/nang)*nang + RotatingPoleAngle(n % nang);
+              // var(k,j,i,n) = azimuthal_shift_rad_(k_shift,m);
             }
           }
         }
@@ -421,6 +527,12 @@ void RadBoundaryVariable::PolarBoundarySingleAzimuthalBlock() {
             k_shift += (k < (nx3_half + NGHOST) ? 1 : -1) * nx3_half;
             for(int n=nl_; n<=nu_; ++n) {
               var(k,j,i,n) = azimuthal_shift_rad_(k_shift,n);
+              // Claude FIX (angle_flag = 1): as for the inner x2 face
+              // int nang = pmy_block_->pnrrad->nang;
+              // int m = n;
+              // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING)
+              //   m = (n/nang)*nang + RotatingPoleAngle(n % nang);
+              // var(k,j,i,n) = azimuthal_shift_rad_(k_shift,m);
             }
           }
         }
@@ -684,6 +796,8 @@ void RadBoundaryVariable::SetRadPhysicalFunctions(
                << "block_bcs[" << face << "] = BoundaryFlag::"
                << GetBoundaryString(pbval->block_bcs[face]) << std::endl;
       ATHENA_ERROR(msg);
+      // Claude FIX: replace the line above with
+      // ATHENA_ERROR(msg_flag);
       break;
   } // end switch (block_bcs[face])
 }

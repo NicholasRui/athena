@@ -49,7 +49,7 @@
 //   -------      ---------
 //   3  |  2       7  |  6
 // in radiation class, nang_per_oct is angles per octant, noct is the number of octant
-// radiation relfection means set specific intensitiy corresponding
+// radiation relfection means set specific intensity corresponding
 // the value in the opposite octant
 
 // Claude: For one cell and one frequency group, swap octant blocks li and lo between
@@ -79,6 +79,23 @@ void RadBoundaryVariable::ReflectInnerX1(Real time, Real dt, int il, int jl, int
   // reflect rays along angles with opposite nx
   // Claude: nang_per_oct = nang/noct assumes the octant layout described at the top of
   // the file.
+  // Claude FIX (angle_flag = 1): use the rotating-grid mirror map instead of octant
+  // swaps (RotatingReflectAngle is in bvals_rad.cpp):
+  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) {
+  //   int nang = pmy_block_->pnrrad->nang;
+  //   for (int k=kl; k<=ku; ++k) {
+  //     for (int j=jl; j<=ju; ++j) {
+  //       for (int i=1; i<=ngh; ++i) {
+  //         for (int n=0; n<=nu_; ++n) {
+  //           int m = (n/nang)*nang + RotatingReflectAngle(n % nang, 0);
+  //           (*var_cc)(k,j,il-i,n) = (*var_cc)(k,j,il+i-1,m);
+  //         }
+  //       }
+  //     }
+  //   }
+  //   return;
+  // }
+
   const int& noct = pmy_block_->pnrrad->noct;
   int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
@@ -106,6 +123,8 @@ void RadBoundaryVariable::ReflectInnerX1(Real time, Real dt, int il, int jl, int
           // angle_flag = 0 run with reflecting x1 boundaries and zero time steps: the
           // first active column changed, and the run aborted at exit with heap
           // corruption (munmap_chunk(): invalid pointer).
+          // Claude FIX: replace the line below with
+          // if (noct > 4) {
           if (noct > 3) {
             CopyIntensity(iri, iro, 4, 5, nang_per_oct);
             CopyIntensity(iri, iro, 6, 7, nang_per_oct);
@@ -127,6 +146,23 @@ void RadBoundaryVariable::ReflectOuterX1(
     Real time, Real dt, int iu, int jl, int ju, int kl, int ku, int ngh) {
   // copy radiation variables into ghost zones,
   // reflect rays along angles with opposite nx
+  // Claude FIX (angle_flag = 1): use the rotating-grid mirror map instead of octant
+  // swaps (RotatingReflectAngle is in bvals_rad.cpp):
+  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) {
+  //   int nang = pmy_block_->pnrrad->nang;
+  //   for (int k=kl; k<=ku; ++k) {
+  //     for (int j=jl; j<=ju; ++j) {
+  //       for (int i=1; i<=ngh; ++i) {
+  //         for (int n=0; n<=nu_; ++n) {
+  //           int m = (n/nang)*nang + RotatingReflectAngle(n % nang, 0);
+  //           (*var_cc)(k,j,iu+i,n) = (*var_cc)(k,j,iu-i+1,m);
+  //         }
+  //       }
+  //     }
+  //   }
+  //   return;
+  // }
+
   const int& noct = pmy_block_->pnrrad->noct;
   int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
@@ -147,6 +183,8 @@ void RadBoundaryVariable::ReflectOuterX1(
           // Claude: BUG: should be noct > 4 (same as ReflectInnerX1). Here the overrun
           // goes past the ghost cell iu+i into iu+i+1; for i = ngh that is the first
           // cell of the next j row, or past the end of the array on the last row.
+          // Claude FIX: replace the line below with
+          // if (noct > 4) {
           if (noct > 3) {
             CopyIntensity(iri, iro, 4, 5, nang_per_oct);
             CopyIntensity(iri, iro, 6, 7, nang_per_oct);
@@ -168,6 +206,23 @@ void RadBoundaryVariable::ReflectInnerX2(Real time, Real dt, int il, int iu, int
   // copy radiation variables into ghost zones,
   // reflect rays along angles with opposite nx
 
+  // Claude FIX (angle_flag = 1): use the rotating-grid mirror map instead of octant
+  // swaps (RotatingReflectAngle is in bvals_rad.cpp):
+  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) {
+  //   int nang = pmy_block_->pnrrad->nang;
+  //   for (int k=kl; k<=ku; ++k) {
+  //     for (int j=1; j<=ngh; ++j) {
+  //       for (int i=il; i<=iu; ++i) {
+  //         for (int n=0; n<=nu_; ++n) {
+  //           int m = (n/nang)*nang + RotatingReflectAngle(n % nang, 1);
+  //           (*var_cc)(k,jl-j,i,n) = (*var_cc)(k,jl+j-1,i,m);
+  //         }
+  //       }
+  //     }
+  //   }
+  //   return;
+  // }
+
   const int& noct = pmy_block_->pnrrad->noct;
   int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
@@ -187,6 +242,8 @@ void RadBoundaryVariable::ReflectInnerX2(Real time, Real dt, int il, int iu, int
 
           // Claude: BUG: should be noct > 4. In 2D (noct == 4) octants 4-7 overrun into
           // the next frequency group or the neighbouring cell, as in ReflectInnerX1.
+          // Claude FIX: replace the line below with
+          // if (noct > 4) {
           if (noct > 3) {
             CopyIntensity(iri, iro, 4, 6, nang_per_oct);
             CopyIntensity(iri, iro, 5, 7, nang_per_oct);
@@ -210,6 +267,23 @@ void RadBoundaryVariable::ReflectOuterX2(Real time, Real dt, int il, int iu, int
   // copy radiation variables into ghost zones,
   // reflect rays along angles with opposite nx
 
+  // Claude FIX (angle_flag = 1): use the rotating-grid mirror map instead of octant
+  // swaps (RotatingReflectAngle is in bvals_rad.cpp):
+  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) {
+  //   int nang = pmy_block_->pnrrad->nang;
+  //   for (int k=kl; k<=ku; ++k) {
+  //     for (int j=1; j<=ngh; ++j) {
+  //       for (int i=il; i<=iu; ++i) {
+  //         for (int n=0; n<=nu_; ++n) {
+  //           int m = (n/nang)*nang + RotatingReflectAngle(n % nang, 1);
+  //           (*var_cc)(k,ju+j,i,n) = (*var_cc)(k,ju-j+1,i,m);
+  //         }
+  //       }
+  //     }
+  //   }
+  //   return;
+  // }
+
   const int& noct = pmy_block_->pnrrad->noct;
   int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
@@ -227,6 +301,8 @@ void RadBoundaryVariable::ReflectOuterX2(Real time, Real dt, int il, int iu, int
           CopyIntensity(iri, iro, 1, 3, nang_per_oct);
 
           // Claude: BUG: should be noct > 4, as in ReflectInnerX2.
+          // Claude FIX: replace the line below with
+          // if (noct > 4) {
           if (noct > 3) {
             CopyIntensity(iri, iro, 4, 6, nang_per_oct);
             CopyIntensity(iri, iro, 5, 7, nang_per_oct);
@@ -250,6 +326,23 @@ void RadBoundaryVariable::ReflectInnerX3(Real time, Real dt, int il, int iu, int
                                          int ju, int kl, int ngh) {
   // copy radiation variables into ghost zones,
   // reflect rays along angles with opposite nx
+
+  // Claude FIX (angle_flag = 1): use the rotating-grid mirror map instead of octant
+  // swaps (RotatingReflectAngle is in bvals_rad.cpp):
+  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) {
+  //   int nang = pmy_block_->pnrrad->nang;
+  //   for (int k=1; k<=ngh; ++k) {
+  //     for (int j=jl; j<=ju; ++j) {
+  //       for (int i=il; i<=iu; ++i) {
+  //         for (int n=0; n<=nu_; ++n) {
+  //           int m = (n/nang)*nang + RotatingReflectAngle(n % nang, 2);
+  //           (*var_cc)(kl-k,j,i,n) = (*var_cc)(kl+k-1,j,i,m);
+  //         }
+  //       }
+  //     }
+  //   }
+  //   return;
+  // }
 
   const int& noct = pmy_block_->pnrrad->noct;
   int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
@@ -286,6 +379,23 @@ void RadBoundaryVariable::ReflectOuterX3(Real time, Real dt, int il, int iu, int
                                          int ju, int ku, int ngh) {
   // copy radiation variables into ghost zones,
   // reflect rays along angles with opposite nx
+  // Claude FIX (angle_flag = 1): use the rotating-grid mirror map instead of octant
+  // swaps (RotatingReflectAngle is in bvals_rad.cpp):
+  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) {
+  //   int nang = pmy_block_->pnrrad->nang;
+  //   for (int k=1; k<=ngh; ++k) {
+  //     for (int j=jl; j<=ju; ++j) {
+  //       for (int i=il; i<=iu; ++i) {
+  //         for (int n=0; n<=nu_; ++n) {
+  //           int m = (n/nang)*nang + RotatingReflectAngle(n % nang, 2);
+  //           (*var_cc)(ku+k,j,i,n) = (*var_cc)(ku-k+1,j,i,m);
+  //         }
+  //       }
+  //     }
+  //   }
+  //   return;
+  // }
+
   const int& noct = pmy_block_->pnrrad->noct;
   int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
   const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
