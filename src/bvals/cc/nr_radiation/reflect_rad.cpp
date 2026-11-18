@@ -155,7 +155,9 @@ int MirrorAngle(MeshBlock *pmb, int n, int dim_face) {
       int dim_pole;
       if (ndim == 1) {
         dim_pole = 0;
-      } else if (ndim == 2 && !spherical_polar) {
+      } else if (ndim == 2 && !spherical_polar && npsi > 1) {
+        // poles are along axisx only for the 2D non-spherical-polar psi grid;
+        // with npsi == 1 they are along axisz (the default below)
         dim_pole = axisx;
       } else {
         dim_pole = axisz;
@@ -174,21 +176,45 @@ int MirrorAngle(MeshBlock *pmb, int n, int dim_face) {
       return mirror_n;
     }
 
+    // special case of 1D -- there is no psi grid (npsi = 0), angles are indexed
+    //   n = coszeta_idx, and all rays lie along x1
+    if (pmb->block_size.nx2 == 1) {
+      if (dim_face == 0) { // flip coszeta
+        mirror_n = 2*nzeta - 1 - n;
+      } else {
+        mirror_n = n;
+      }
+      return mirror_n;
+    }
+
     int coszeta_idx = n / (2*npsi);
     int psi_idx = n - 2*npsi*coszeta_idx;
     int mirror_coszeta_idx, mirror_psi_idx;
+
+    // special case of 2D with npsi == 1 -- the two psi indices are at psi = 0, pi
+    //   (not pi/2, 3pi/2 as the general psi grid would give), so the rays have
+    //   x = +/- sinzeta and y = 0
+    bool is_2d_npsi1 = (pmb->block_size.nx3 == 1 && npsi == 1);
 
     if (dim_face == axisx) {
       // flip cos(psi) while preserving sin(psi): psi -> pi - psi, mod 2pi
       //  add another 2pi because % operator in C++ does not implement true
       //  modulo for negative numbers
       mirror_coszeta_idx = coszeta_idx;
-      mirror_psi_idx = (3*npsi - 1 - psi_idx) % (2*npsi);
+      if (is_2d_npsi1) { // swap psi = 0 and psi = pi
+        mirror_psi_idx = 1 - psi_idx;
+      } else {
+        mirror_psi_idx = (3*npsi - 1 - psi_idx) % (2*npsi);
+      }
 
     } else if (dim_face == axisy) {
       // flip sin(psi) while preserving cos(psi): psi -> 2pi - psi
       mirror_coszeta_idx = coszeta_idx;
-      mirror_psi_idx = 2*npsi - 1 - psi_idx;
+      if (is_2d_npsi1) { // y = 0, so the ray is unchanged
+        mirror_psi_idx = psi_idx;
+      } else {
+        mirror_psi_idx = 2*npsi - 1 - psi_idx;
+      }
 
     } else if (dim_face == axisz) {
       // flip coszeta
