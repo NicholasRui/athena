@@ -14,6 +14,7 @@
 // Athena++ headers
 #include "../../../athena.hpp"
 #include "../../../athena_arrays.hpp"
+#include "../../../coordinates/coordinates.hpp"
 #include "../../../mesh/mesh.hpp"
 #include "../../../nr_radiation/radiation.hpp"
 #include "./bvals_rad.hpp"
@@ -136,6 +137,11 @@ int MirrorAngle(MeshBlock *pmb, int n, int dim_face) {
     const int nzeta = prad->nzeta;
     const int npsi = prad->npsi;
 
+    // coordinate direction (0, 1, 2 = x1, x2, x3) of the local x, y, z axes;
+    // spherical_polar: (axisx, axisy, axisz) = (1, 2, 0)
+    int axisx = 0, axisy = 1, axisz = 2;
+    pmb->pcoord->AxisDirection(&axisx, &axisy, &axisz);
+
     // special case of polar_angle -- last two angles are pole rays
     //   if reflection is z, swap the poles. otherwise, leave it the same
     //   (poles are invariant under x/y reflections)
@@ -150,9 +156,9 @@ int MirrorAngle(MeshBlock *pmb, int n, int dim_face) {
       if (ndim == 1) {
         dim_pole = 0;
       } else if (ndim == 2 && !spherical_polar) {
-        dim_pole = 0;
+        dim_pole = axisx;
       } else {
-        dim_pole = 2;
+        dim_pole = axisz;
       }
 
       if (dim_pole == dim_face) { // if reflection along pole, switch poles
@@ -172,19 +178,19 @@ int MirrorAngle(MeshBlock *pmb, int n, int dim_face) {
     int psi_idx = n - 2*npsi*coszeta_idx;
     int mirror_coszeta_idx, mirror_psi_idx;
 
-    if (dim_face == 0) {
+    if (dim_face == axisx) {
       // flip cos(psi) while preserving sin(psi): psi -> pi - psi, mod 2pi
       //  add another 2pi because % operator in C++ does not implement true
       //  modulo for negative numbers
       mirror_coszeta_idx = coszeta_idx;
       mirror_psi_idx = (3*npsi - 1 - psi_idx) % (2*npsi);
 
-    } else if (dim_face == 1) {
+    } else if (dim_face == axisy) {
       // flip sin(psi) while preserving cos(psi): psi -> 2pi - psi
       mirror_coszeta_idx = coszeta_idx;
       mirror_psi_idx = 2*npsi - 1 - psi_idx;
 
-    } else if (dim_face == 2) {
+    } else if (dim_face == axisz) {
       // flip coszeta
       mirror_coszeta_idx = 2*nzeta - 1 - coszeta_idx;
       mirror_psi_idx = psi_idx;
