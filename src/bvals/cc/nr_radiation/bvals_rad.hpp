@@ -144,7 +144,7 @@ class RadBoundaryVariable : public CellCenteredBoundaryVariable {
 
   void PolarBoundarySingleAzimuthalBlock() override;
 
-  // Claude FIX: angle index maps for angle_grid_type = rotating, used by the
+  // Claude FIX: angle index maps for angle_grid_type = corotating, used by the
   // commented-out fixes in reflect_rad.cpp, polarwedge_rad.cpp and bvals_rad.cpp.
   // Definitions (also commented out) are in bvals_rad.cpp.
   // int RotatingFlipAxisZ(int n);

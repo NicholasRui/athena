@@ -168,7 +168,7 @@ void RadBoundaryVariable::SetBoundaries() {
 }
 
 //----------------------------------------------------------------------------------------
-// Claude FIX: angle index maps for angle_grid_type = rotating (angle_flag =
+// Claude FIX: angle index maps for angle_grid_type = corotating (angle_flag =
 // ANGLE_FLAG_COROTATING). Not compiled; uncomment together with the declarations in
 // bvals_rad.hpp to use the commented-out fixes in reflect_rad.cpp, polarwedge_rad.cpp
 // and below.

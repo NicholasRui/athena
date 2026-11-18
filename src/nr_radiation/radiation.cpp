@@ -102,7 +102,7 @@ NRRadiation::NRRadiation(MeshBlock *pmb, ParameterInput *pin):
 
   // read in the parameters
   // angle grid: angle_grid_type (or deprecated angle_flag), and
-  // nmu (lab_davis, lab_magic) or nzeta, npsi, polar_angle (rotating)
+  // nmu (lab_davis, lab_magic) or nzeta, npsi, polar_angle (corotating)
   // nzeta: total number of polar angles covering 0 to pi/2
   // npsi: total number of azimuthal angles covering 0 to pi
   ReadAngleGridParameters(pin, ndim, angle_flag, nmu, nzeta, npsi, polar_angle);
@@ -149,7 +149,7 @@ NRRadiation::NRRadiation(MeshBlock *pmb, ParameterInput *pin):
     GetNumAnglesRotating(angle_flag, ndim, polar_angle, nzeta, npsi,
         COORDINATE_SYSTEM, nang);
 
-    // the rotating grid has no octants; noct is only kept for the octant-based
+    // the corotating grid has no octants; noct is only kept for the octant-based
     // reflect/rotate boundaries (reflect_rad.cpp, rotate_rad.cpp), which use nang/noct
     noct = std::pow(2, ndim);
     if (ndim == 2 && use_spherical_polar) {
@@ -356,13 +356,13 @@ void NRRadiation::EnrollEmissionFunction(EmissionFunc MyEmissionSpec) {
 //
 // angle_grid_type sets angle_flag:
 // - "lab_davis"  - lab-frame grid of Davis et al. (2012, ApJS, 199, 9)   (angle_flag = 0)
-// - "rotating"   - corotating angle grid of Jiang (2022, ApJS, 263, 4)   (angle_flag = 1)
+// - "corotating" - corotating angle grid of Jiang (2022, ApJS, 263, 4)   (angle_flag = 1)
 // - "lab_magic"  - lab-frame grid using magic angles for zeta           (angle_flag = 10)
 //                  (coszeta = 1/sqrt(3)) for approximate isotropy
 // specifying angle_flag manually is still supported, but deprecated and gives warning
 //
 // lab_davis, lab_magic: nmu required; nzeta, npsi, polar_angle not allowed
-// rotating:             nzeta required; npsi required in 2D/3D, not allowed in 1D;
+// corotating:           nzeta required; npsi required in 2D/3D, not allowed in 1D;
 //                       polar_angle optional (0 or 1); nmu not allowed
 // parameters not used by the angle grid are returned as 0
 void NRRadiation::ReadAngleGridParameters(ParameterInput *pin, int ndim,
@@ -392,7 +392,7 @@ void NRRadiation::ReadAngleGridParameters(ParameterInput *pin, int ndim,
     if (!warned && Globals::my_rank == 0) {
       std::cout << "### WARNING in radiation class" << std::endl
                 << "angle_flag is deprecated; use angle_grid_type = lab_davis (0), "
-                << "rotating (1), or lab_magic (10) instead" << std::endl;
+                << "corotating (1), or lab_magic (10) instead" << std::endl;
     }
     warned = true;
 
@@ -400,13 +400,13 @@ void NRRadiation::ReadAngleGridParameters(ParameterInput *pin, int ndim,
     std::string type = pin->GetOrAddString("radiation", "angle_grid_type", "lab_davis");
     if (type == "lab_davis") {
       angle_flag = ANGLE_FLAG_LAB_DAVIS;
-    } else if (type == "rotating") {
+    } else if (type == "corotating") {
       angle_flag = ANGLE_FLAG_COROTATING;
     } else if (type == "lab_magic") {
       angle_flag = ANGLE_FLAG_LAB_MAGIC;
     } else {
       msg << "### FATAL ERROR in radiation class" << std::endl
-          << "angle_grid_type = " << type << " is not one of lab_davis, rotating, "
+          << "angle_grid_type = " << type << " is not one of lab_davis, corotating, "
           << "lab_magic" << std::endl;
       ATHENA_ERROR(msg);
     }
@@ -424,7 +424,7 @@ void NRRadiation::ReadAngleGridParameters(ParameterInput *pin, int ndim,
         || pin->DoesParameterExist("radiation", "npsi")
         || pin->DoesParameterExist("radiation", "polar_angle")) {
       msg << "### FATAL ERROR in radiation class" << std::endl
-          << "nzeta, npsi, and polar_angle are only used by angle_grid_type = rotating"
+          << "nzeta, npsi, and polar_angle are only used by angle_grid_type = corotating"
           << std::endl;
       ATHENA_ERROR(msg);
     }
@@ -440,14 +440,14 @@ void NRRadiation::ReadAngleGridParameters(ParameterInput *pin, int ndim,
   } else if (angle_flag == ANGLE_FLAG_COROTATING) {
     if (pin->DoesParameterExist("radiation", "nmu")) {
       msg << "### FATAL ERROR in radiation class" << std::endl
-          << "nmu is not used by angle_grid_type = rotating; use nzeta and npsi"
+          << "nmu is not used by angle_grid_type = corotating; use nzeta and npsi"
           << std::endl;
       ATHENA_ERROR(msg);
     }
     // cannot vary angles in psi with only one dimension
     if (ndim == 1 && pin->DoesParameterExist("radiation", "npsi")) {
       msg << "### FATAL ERROR in radiation class" << std::endl
-          << "npsi is not used by angle_grid_type = rotating in 1D" << std::endl;
+          << "npsi is not used by angle_grid_type = corotating in 1D" << std::endl;
       ATHENA_ERROR(msg);
     }
 
@@ -462,19 +462,19 @@ void NRRadiation::ReadAngleGridParameters(ParameterInput *pin, int ndim,
     }
     if (ndim == 1 && nzeta == 0) {
       msg << "### FATAL ERROR in radiation class" << std::endl
-          << "nzeta must be >= 1 for angle_grid_type = rotating in 1D" << std::endl;
+          << "nzeta must be >= 1 for angle_grid_type = corotating in 1D" << std::endl;
       ATHENA_ERROR(msg);
     }
     if ((ndim == 3 || (ndim == 2 && use_spherical_polar)) && (nzeta == 0 || npsi == 0)) {
       msg << "### FATAL ERROR in radiation class" << std::endl
-          << "nzeta and npsi must both be >= 1 for angle_grid_type = rotating "
+          << "nzeta and npsi must both be >= 1 for angle_grid_type = corotating "
           << "in 3D or 2D spherical_polar" << std::endl;
       ATHENA_ERROR(msg);
     }
     if (ndim == 2 && nzeta == 0 && npsi == 0) {
       msg << "### FATAL ERROR in radiation class" << std::endl
           << "at least one of nzeta and npsi must be >= 1 for angle_grid_type = "
-          << "rotating" << std::endl;
+          << "corotating" << std::endl;
       ATHENA_ERROR(msg);
     }
     if (polar_angle != 0 && polar_angle != 1) {
@@ -520,7 +520,7 @@ void NRRadiation::GetNumAnglesAndOctantsLab(int angle_flag, int ndim, int nmu,
 }
 
 
-// Assigns number of angles for rotating
+// Assigns number of angles for corotating
 // There are no octants: angle n = izeta*(2*npsi) + ipsi, with 2*nzeta zeta angles and
 // 2*npsi psi angles (see AngularGrid(angle_flag, nzeta, npsi))
 // Called both here and in src/mesh/meshblock.cpp

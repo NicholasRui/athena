@@ -290,7 +290,7 @@ void NRRadiation::AngularGrid(int angle_flag, int nmu) {
 // This is the so-called spherical polar tetrad,
 // which is ideal for spherical polar coordinates
 
-// This is the angle_flag == ANGLE_FLAG_COROTATING (angle_grid_type = rotating) case
+// This is the angle_flag == ANGLE_FLAG_COROTATING (angle_grid_type = corotating) case
 // and follows Jiang 2022, ApJS 263, 4
 
 void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
@@ -300,7 +300,7 @@ void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
   if (angle_flag != ANGLE_FLAG_COROTATING) {
     std::stringstream msg;
     msg << "### FATAL ERROR in AngularGrid(nzeta, npsi)" << std::endl
-        << "This overload only handles angle_grid_type = rotating (angle_flag = "
+        << "This overload only handles angle_grid_type = corotating (angle_flag = "
         << ANGLE_FLAG_COROTATING << "), got angle_flag = " << angle_flag
         << std::endl;
     ATHENA_ERROR(msg);
@@ -362,7 +362,7 @@ void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
     // Compute CELL-CENTERED cos(zeta) grid by averaging face-centered values
 
     // if polar_angle is not enabled, the discrete <cos^2(zeta)> != 1/3 exactly
-    // apply a normalization to force it to be 1/3, to match isotropic limit
+    // so we apply a normalization to force it to be 1/3, to match isotropic limit
     Real norm = polar_angle ? 1.0 : 2*nzeta/std::sqrt(4*nzeta*nzeta-1);
 
     coszeta_v.NewAthenaArray(2*nzeta);

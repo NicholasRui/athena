@@ -40,7 +40,7 @@ enum {OPAS=0, OPAA=1, OPAP=2}; // scattering, absorption, Planck, opacity
 
 // angle_flag values, set from <radiation> angle_grid_type (or deprecated angle_flag)
 constexpr int ANGLE_FLAG_LAB_DAVIS = 0;    // angle_grid_type = lab_davis
-constexpr int ANGLE_FLAG_COROTATING = 1;   // angle_grid_type = rotating
+constexpr int ANGLE_FLAG_COROTATING = 1;   // angle_grid_type = corotating
 constexpr int ANGLE_FLAG_LAB_MAGIC = 10;   // angle_grid_type = lab_magic
 
 class NRRadiation {
@@ -103,7 +103,7 @@ class NRRadiation {
   // lab_davis / lab_magic: octant-major layout, nang = noct * angles per octant
   static void GetNumAnglesAndOctantsLab(int angle_flag, int ndim, int nmu,
       int &noct, int &nang);
-  // rotating: no octants
+  // corotating: no octants
   static void GetNumAnglesRotating(int angle_flag, int ndim, int polar_angle,
       int nzeta, int npsi, const char* coord, int &nang);
 
