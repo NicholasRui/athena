@@ -76,7 +76,7 @@ void Reflect(MeshBlock *pmb, AthenaArray<Real> &var,
           if (dim_face == 1) { jg=ghost_face_idx; ja=active_face_idx; ig=ia=p; kg=ka=q; }
           if (dim_face == 2) { kg=ghost_face_idx; ka=active_face_idx; ig=ia=p; jg=ja=q; }
 
-          for (int n = 0; n < nang; ++n) { // loop over angles
+          for (int n=0; n < nang; ++n) { // loop over angles
             int m = MirrorAngle(pmb, n, dim_face);  // reflected angle index, depends on angle_flag
             Real *ir_active = &var(ka, ja, ia, ifr*nang + m);  // active cell, reflected angle m
             Real *ir_ghost  = &var(kg, jg, ig, ifr*nang + n);  // ghost cell, angle n
@@ -124,7 +124,7 @@ int MirrorAngle(MeshBlock *pmb, int n, int dim_face) {
     // ANGLE_FLAG_COROTATING makes a "corotating" angle grid whose basis vectors
     // are the basis vectors of the coordinate system
     //
-    // Accomplish a flip by flipping the angles according to what is appropriate
+    // Accomplish a mirror by flipping the angles according to what is appropriate
     //  angles are indexed as:
     //    n = 2*npsi*coszeta_idx + psi_idx
     //
