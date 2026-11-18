@@ -17,405 +17,150 @@
 #include "../../../nr_radiation/radiation.hpp"
 #include "./bvals_rad.hpp"
 
-
-// Claude: Overview. A reflecting boundary mirrors the solution across the boundary
-// face. Ghost cell il-i takes the data of interior cell il+i-1 (its mirror image in
-// space), and each ray in the ghost cell takes the intensity of the interior ray whose
-// direction is the mirror image across the face: the component of mu normal to the face
-// flips sign, the other two are unchanged.
+// At each face (e.g., defined by constant X), loop over the entire "face" of
+//   ghost cells, i.e., loop over "thickness" of ghost cell layer in X and the full area
+//   Y and Z. Each ghost cell lies some distance S within the "ghost region."
+//  
+// To implement reflection, we set the specific intensities of each ghost cell (lying
+//   a distance S within the ghost region) by copying the specific intensities of a
+//   "partner" active cell (lying a distance S within the active region) but with
+//   the angle grid flipped along that axis.
 //
-// Claude: These routines find the mirrored ray by swapping whole OCTANT BLOCKS. That
-// only works for the angle_flag = 0 / 10 layout, where angles are stored octant by
-// octant, n = octant*nang_per_oct + i, with octants numbered as in the diagram below
-// (bit 0 = sign of mu_x, bit 1 = sign of mu_y, bit 2 = sign of mu_z), and where angle i
-// of one octant is the mirror image of angle i of the neighbouring octant.
+// PSEUDOCODE: to reflect across X...
+  // loop over ghost cells X_ghost=1...S, Y[active], Z[active]:
+  //   loop over ghost angles n_ghost:
+  //     n_active = flip n_ghost across X
+  //     X_active = X[active cell a distance X_ghost away from face]
+  //     I[n_ghost, (X, Y, Z)] = I[n_active, (X_active, Y, Z)]
 //
-// Claude: BUG (angle_flag = 1): AngularGrid(angle_flag, nzeta, npsi) stores angles as n
-// = izeta*(2*npsi) + ipsi, with the two polar angles (if any) at nang-2 and nang-1.
-// There are no octant blocks, so nang/noct means nothing in that layout and these swaps
-// pair up unrelated rays. With polar_angle the integer division nang/noct also drops
-// the 2 polar angles, so they are never reflected at all. The correct mirrored index
-// for angle_flag = 1 in spherical polar (mu components are local r, theta, phi) is: x1
-// (r) face: mu_r flips, so izeta -> 2*nzeta-1-izeta with ipsi unchanged, and the polar
-// angles swap (nang-2 <-> nang-1). x2 (theta) face: mu_theta = sin(zeta)*cos(psi)
-// flips, so psi -> pi - psi, i.e. ipsi -> (npsi-1-ipsi) mod 2*npsi; except npsi == 1,
-// where AngularGrid puts the transverse component on mu_theta itself, so ipsi ->
-// 1-ipsi. Polar angles unchanged. x3 (phi) face: mu_phi = sin(zeta)*sin(psi) flips, so
-// ipsi -> 2*npsi-1-ipsi. A layout-independent fix is to precompute, once per face, the
-// index of the angle whose mu equals the reflected mu, and use that table here.
-// The angular grid can change
-// The angular octant is
-//   1  |  0       5  |  4
-//   -------      ---------
-//   3  |  2       7  |  6
-// in radiation class, nang_per_oct is angles per octant, noct is the number of octant
-// radiation relfection means set specific intensity corresponding
-// the value in the opposite octant
+// There are six different possibilities, depending on dimension X/Y/Z and which end of
+//   the domain inner/outer
+//
+// Define a helper that executes this:
+void RadBoundaryVariable::Reflect(int il, int iu, int jl, int ju, int kl, int ku, int ngh,
+                                  int is_outer, int dim_face) {
+  const int& nang = pmy_block_->pnrrad->nang; // number of angles
+  const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency groups
+  AthenaArray<Real> &var = *var_cc;
 
-// Claude: For one cell and one frequency group, swap octant blocks li and lo between
-// the interior cell (iri) and the ghost cell (iro): ghost rays in octant li get the
-// interior rays of octant lo, and vice versa. iri and iro point at the first of this
-// group's nang angles, so any index >= nang lands in the NEXT frequency group of the
-// same cell, or, for the last group, in the next cell along x1.
-// Temporary function to copy intensity
-void CopyIntensity(Real *iri, Real *iro, int li, int lo, int nang_per_oct) {
-  // here ir is only intensity for each cell and each frequency band
-  for (int n=0; n<nang_per_oct; ++n) {
-    int angi = li * nang_per_oct + n;
-    int ango = lo * nang_per_oct + n;
-    iro[angi] = iri[ango];
-    iro[ango] = iri[angi];
+  // is_outer: 0=inner 1=outer
+  // dim_face: 0=x, 1=y, 2=z
+  int face_idx, pl, pu, ql, qu;
+  if (dim_face == 0 && !is_outer) { face_idx = il; pl = jl; pu = ju; ql = kl; qu = ku; }
+  if (dim_face == 0 &&  is_outer) { face_idx = iu; pl = jl; pu = ju; ql = kl; qu = ku; }
+  if (dim_face == 1 && !is_outer) { face_idx = jl; pl = il; pu = iu; ql = kl; qu = ku; }
+  if (dim_face == 1 &&  is_outer) { face_idx = ju; pl = il; pu = iu; ql = kl; qu = ku; }
+  if (dim_face == 2 && !is_outer) { face_idx = kl; pl = il; pu = iu; ql = jl; qu = ju; }
+  if (dim_face == 2 &&  is_outer) { face_idx = ku; pl = il; pu = iu; ql = jl; qu = ju; }
+
+  for (int ifr=0; ifr<nfreq; ++ifr) { // loop over frequency groups
+
+    for (int p=pl; p<=pu; ++p) { // loop over perpendicular directions
+      for (int q=ql; q<=qu; ++q) {
+        for (int r=1; r<=ngh; ++r) { // loop over ghost direction
+
+          // depending on inner/outer, pick ghost/active cell as r'th cell from face_idx
+          int ghost_face_idx, active_face_idx;
+          if (!is_outer) { ghost_face_idx = face_idx-r;  active_face_idx = face_idx+r-1; }
+          if ( is_outer) { ghost_face_idx = face_idx+r;  active_face_idx = face_idx-r+1; }
+
+          // based on dim_face, find indices for partner ghost (ig,jg,kg) and active (ia,ja,ka) cells
+          int ig, jg, kg, ia, ja, ka;
+          if (dim_face == 0) { ig=ghost_face_idx; ia=active_face_idx; jg=ja=p; kg=ka=q; }
+          if (dim_face == 1) { jg=ghost_face_idx; ja=active_face_idx; ig=ia=p; kg=ka=q; }
+          if (dim_face == 2) { kg=ghost_face_idx; ka=active_face_idx; ig=ia=p; jg=ja=q; }
+
+          for (int n = 0; n < nang; ++n) { // loop over angles
+            int m = MirrorAngle(n, dim_face);  // reflected angle index, depends on angle_flag
+            Real *ir_active = &var(ka, ja, ia, ifr*nang + m);  // active cell, reflected angle m
+            Real *ir_ghost  = &var(kg, jg, ig, ifr*nang + n);  // ghost cell, angle n
+            *ir_ghost = *ir_active;
+          }
+
+        }
+      }
+    }
+  }
+
+  return;
+}
+
+
+// TODO: need MirrorAngle
+
+
+void RadBoundaryVariable::MirrorAngle(int n, int dim_face) {
+  int angle_flag = pmy_block_->pnrrad->angle_flag;
+
+  if (angle_flag==ANGLE_FLAG_LAB_DAVIS || angle_flag==ANGLE_FLAG_LAB_MAGIC) {
+
+
+
+  // TODO!!
+
+
+
+
+
+
+
+
+  } else if (angle_flag == ANGLE_FLAG_COROTATING) {
+
   }
 }
+
 
 //----------------------------------------------------------------------------------------
 //! \fn void RadBoundaryVariable::ReflectInnerX1(
 //          Real time, Real dt, int il, int jl, int ju, int kl, int ku, int ngh)
 //  \brief REFLECTING boundary conditions, inner x1 boundary
-
 void RadBoundaryVariable::ReflectInnerX1(Real time, Real dt, int il, int jl, int ju,
                                          int kl, int ku, int ngh) {
-  // copy radiation variables into ghost zones,
-  // reflect rays along angles with opposite nx
-  // Claude: nang_per_oct = nang/noct assumes the octant layout described at the top of
-  // the file.
-  // Claude FIX (angle_flag = 1): use the rotating-grid mirror map instead of octant
-  // swaps (RotatingReflectAngle is in bvals_rad.cpp):
-  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) {
-  //   int nang = pmy_block_->pnrrad->nang;
-  //   for (int k=kl; k<=ku; ++k) {
-  //     for (int j=jl; j<=ju; ++j) {
-  //       for (int i=1; i<=ngh; ++i) {
-  //         for (int n=0; n<=nu_; ++n) {
-  //           int m = (n/nang)*nang + RotatingReflectAngle(n % nang, 0);
-  //           (*var_cc)(k,j,il-i,n) = (*var_cc)(k,j,il+i-1,m);
-  //         }
-  //       }
-  //     }
-  //   }
-  //   return;
-  // }
-
-  const int& noct = pmy_block_->pnrrad->noct;
-  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
-  const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
-
-  for (int k=kl; k<=ku; ++k) {
-    for (int j=jl; j<=ju; ++j) {
-      // Claude: i = 1 is the ghost cell touching the face; it mirrors the first active
-      // cell il.
-      for (int i=1; i<=ngh; ++i) {
-        for (int ifr=0; ifr<nfreq; ++ifr) {
-          AthenaArray<Real> &var = *var_cc;
-          Real *iri = &var(k,j,(il+i-1),ifr*pmy_block_->pnrrad->nang);
-          Real *iro = &var(k,j, il-i, ifr*pmy_block_->pnrrad->nang);
-          // Claude: Flip mu_x: swap octants that differ only in the sign of mu_x. 0 <->
-          // 1 always; 2 <-> 3 in 2D and 3D; 4 <-> 5 and 6 <-> 7 in 3D only.
-          CopyIntensity(iri, iro, 0, 1, nang_per_oct);
-          if (noct > 2) {
-            CopyIntensity(iri, iro, 2, 3, nang_per_oct);
-          }
-          // Claude: BUG: should be noct > 4. In 2D noct == 4, so octants 4-7 do not
-          // exist. Their indices (>= 4*nang_per_oct = nang) run past this frequency
-          // group: into the next group, or for the last group into the next cell. For
-          // the ghost cell touching the face (i = 1) that next cell is the ACTIVE cell
-          // il, so active intensities get overwritten. Confirmed in a 2D Cartesian
-          // angle_flag = 0 run with reflecting x1 boundaries and zero time steps: the
-          // first active column changed, and the run aborted at exit with heap
-          // corruption (munmap_chunk(): invalid pointer).
-          // Claude FIX: replace the line below with
-          // if (noct > 4) {
-          if (noct > 3) {
-            CopyIntensity(iri, iro, 4, 5, nang_per_oct);
-            CopyIntensity(iri, iro, 6, 7, nang_per_oct);
-          }
-        }
-      }
-    }
-  }
-  return;
+  Reflect(il,  0, jl, ju, kl, ku, ngh, 0, 0);
 }
-
 
 //----------------------------------------------------------------------------------------
 //! \fn void RadBoundaryVariable::ReflectOuterX1(
 //          Real time, Real dt, int iu, int jl, int ju, int kl, int ku, int ngh)
 //  \brief REFLECTING boundary conditions, outer x1 boundary
-
-void RadBoundaryVariable::ReflectOuterX1(
-    Real time, Real dt, int iu, int jl, int ju, int kl, int ku, int ngh) {
-  // copy radiation variables into ghost zones,
-  // reflect rays along angles with opposite nx
-  // Claude FIX (angle_flag = 1): use the rotating-grid mirror map instead of octant
-  // swaps (RotatingReflectAngle is in bvals_rad.cpp):
-  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) {
-  //   int nang = pmy_block_->pnrrad->nang;
-  //   for (int k=kl; k<=ku; ++k) {
-  //     for (int j=jl; j<=ju; ++j) {
-  //       for (int i=1; i<=ngh; ++i) {
-  //         for (int n=0; n<=nu_; ++n) {
-  //           int m = (n/nang)*nang + RotatingReflectAngle(n % nang, 0);
-  //           (*var_cc)(k,j,iu+i,n) = (*var_cc)(k,j,iu-i+1,m);
-  //         }
-  //       }
-  //     }
-  //   }
-  //   return;
-  // }
-
-  const int& noct = pmy_block_->pnrrad->noct;
-  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
-  const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
-
-  for (int k=kl; k<=ku; ++k) {
-    for (int j=jl; j<=ju; ++j) {
-      for (int i=1; i<=ngh; ++i) {
-        for (int ifr=0; ifr<nfreq; ++ifr) {
-          AthenaArray<Real> &var = *var_cc;
-          // Claude: Ghost cell iu+i mirrors interior cell iu-i+1.
-          Real *iri = &var(k,j,(iu-i+1),ifr*pmy_block_->pnrrad->nang);
-          Real *iro = &var(k,j, iu+i, ifr*pmy_block_->pnrrad->nang);
-          // Claude: Flip mu_x, as for the inner x1 face.
-          CopyIntensity(iri, iro, 0, 1, nang_per_oct);
-          if (noct > 2) {
-            CopyIntensity(iri, iro, 2, 3, nang_per_oct);
-          }
-          // Claude: BUG: should be noct > 4 (same as ReflectInnerX1). Here the overrun
-          // goes past the ghost cell iu+i into iu+i+1; for i = ngh that is the first
-          // cell of the next j row, or past the end of the array on the last row.
-          // Claude FIX: replace the line below with
-          // if (noct > 4) {
-          if (noct > 3) {
-            CopyIntensity(iri, iro, 4, 5, nang_per_oct);
-            CopyIntensity(iri, iro, 6, 7, nang_per_oct);
-          }
-        }
-      }
-    }
-  }
-  return;
+void RadBoundaryVariable::ReflectOuterX1(Real time, Real dt, int iu, int jl, int ju,
+                                         int kl, int ku, int ngh) {
+  Reflect( 0, iu, jl, ju, kl, ku, ngh, 1, 0);
 }
 
 //----------------------------------------------------------------------------------------
 //! \fn void RadBoundaryVariable::ReflectInnerX2(
-//          Real time, Real dt, int il, int jl, int ju, int kl, int ku, int ngh)
+//          Real time, Real dt, int il, int iu, int jl, int kl, int ku, int ngh)
 //  \brief REFLECTING boundary conditions, inner x2 boundary
-
 void RadBoundaryVariable::ReflectInnerX2(Real time, Real dt, int il, int iu, int jl,
                                          int kl, int ku, int ngh) {
-  // copy radiation variables into ghost zones,
-  // reflect rays along angles with opposite nx
-
-  // Claude FIX (angle_flag = 1): use the rotating-grid mirror map instead of octant
-  // swaps (RotatingReflectAngle is in bvals_rad.cpp):
-  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) {
-  //   int nang = pmy_block_->pnrrad->nang;
-  //   for (int k=kl; k<=ku; ++k) {
-  //     for (int j=1; j<=ngh; ++j) {
-  //       for (int i=il; i<=iu; ++i) {
-  //         for (int n=0; n<=nu_; ++n) {
-  //           int m = (n/nang)*nang + RotatingReflectAngle(n % nang, 1);
-  //           (*var_cc)(k,jl-j,i,n) = (*var_cc)(k,jl+j-1,i,m);
-  //         }
-  //       }
-  //     }
-  //   }
-  //   return;
-  // }
-
-  const int& noct = pmy_block_->pnrrad->noct;
-  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
-  const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
-
-  for (int k=kl; k<=ku; ++k) {
-    for (int j=1; j<=ngh; ++j) {
-      for (int i=il; i<=iu; ++i) {
-        for (int ifr=0; ifr<nfreq; ++ifr) {
-          AthenaArray<Real> &var = *var_cc;
-          // Claude: Ghost cell jl-j mirrors interior cell jl+j-1.
-          Real *iri = &var(k,jl+j-1,i,ifr*pmy_block_->pnrrad->nang);
-          Real *iro = &var(k,jl-j,i, ifr*pmy_block_->pnrrad->nang);
-          // Claude: Flip mu_y: swap octants that differ only in the sign of mu_y. 0 <->
-          // 2 and 1 <-> 3 always; 4 <-> 6 and 5 <-> 7 in 3D only.
-          CopyIntensity(iri, iro, 0, 2, nang_per_oct);
-          CopyIntensity(iri, iro, 1, 3, nang_per_oct);
-
-          // Claude: BUG: should be noct > 4. In 2D (noct == 4) octants 4-7 overrun into
-          // the next frequency group or the neighbouring cell, as in ReflectInnerX1.
-          // Claude FIX: replace the line below with
-          // if (noct > 4) {
-          if (noct > 3) {
-            CopyIntensity(iri, iro, 4, 6, nang_per_oct);
-            CopyIntensity(iri, iro, 5, 7, nang_per_oct);
-          }
-        }
-      }
-    }
-  }
-  return;
+  Reflect(il, iu, jl,  0, kl, ku, ngh, 0, 1);
 }
-
-
 
 //----------------------------------------------------------------------------------------
 //! \fn void RadBoundaryVariable::ReflectOuterX2(
-//          Real time, Real dt, int il, int jl, int ju, int kl, int ku, int ngh)
+//          Real time, Real dt, int il, int iu, int ju, int kl, int ku, int ngh)
 //  \brief REFLECTING boundary conditions, outer x2 boundary
-
 void RadBoundaryVariable::ReflectOuterX2(Real time, Real dt, int il, int iu, int ju,
                                          int kl, int ku, int ngh) {
-  // copy radiation variables into ghost zones,
-  // reflect rays along angles with opposite nx
-
-  // Claude FIX (angle_flag = 1): use the rotating-grid mirror map instead of octant
-  // swaps (RotatingReflectAngle is in bvals_rad.cpp):
-  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) {
-  //   int nang = pmy_block_->pnrrad->nang;
-  //   for (int k=kl; k<=ku; ++k) {
-  //     for (int j=1; j<=ngh; ++j) {
-  //       for (int i=il; i<=iu; ++i) {
-  //         for (int n=0; n<=nu_; ++n) {
-  //           int m = (n/nang)*nang + RotatingReflectAngle(n % nang, 1);
-  //           (*var_cc)(k,ju+j,i,n) = (*var_cc)(k,ju-j+1,i,m);
-  //         }
-  //       }
-  //     }
-  //   }
-  //   return;
-  // }
-
-  const int& noct = pmy_block_->pnrrad->noct;
-  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
-  const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
-
-  for (int k=kl; k<=ku; ++k) {
-    for (int j=1; j<=ngh; ++j) {
-      for (int i=il; i<=iu; ++i) {
-        for (int ifr=0; ifr<nfreq; ++ifr) {
-          AthenaArray<Real> &var = *var_cc;
-          // Claude: Ghost cell ju+j mirrors interior cell ju-j+1.
-          Real *iri = &var(k,ju-j+1,i,ifr*pmy_block_->pnrrad->nang);
-          Real *iro = &var(k,ju+j,i, ifr*pmy_block_->pnrrad->nang);
-          // Claude: Flip mu_y, as for the inner x2 face.
-          CopyIntensity(iri, iro, 0, 2, nang_per_oct);
-          CopyIntensity(iri, iro, 1, 3, nang_per_oct);
-
-          // Claude: BUG: should be noct > 4, as in ReflectInnerX2.
-          // Claude FIX: replace the line below with
-          // if (noct > 4) {
-          if (noct > 3) {
-            CopyIntensity(iri, iro, 4, 6, nang_per_oct);
-            CopyIntensity(iri, iro, 5, 7, nang_per_oct);
-          }
-        }
-      }
-    }
-  }
-  return;
+  Reflect(il, iu,  0, ju, kl, ku, ngh, 1, 1);
 }
-
-
-
 
 //----------------------------------------------------------------------------------------
 //! \fn void RadBoundaryVariable::ReflectInnerX3(
-//          Real time, Real dt, int il, int jl, int ju, int kl, int ku, int ngh)
+//          Real time, Real dt, int il, int iu, int jl, int ju, int kl, int ngh)
 //  \brief REFLECTING boundary conditions, inner x3 boundary
-
 void RadBoundaryVariable::ReflectInnerX3(Real time, Real dt, int il, int iu, int jl,
                                          int ju, int kl, int ngh) {
-  // copy radiation variables into ghost zones,
-  // reflect rays along angles with opposite nx
-
-  // Claude FIX (angle_flag = 1): use the rotating-grid mirror map instead of octant
-  // swaps (RotatingReflectAngle is in bvals_rad.cpp):
-  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) {
-  //   int nang = pmy_block_->pnrrad->nang;
-  //   for (int k=1; k<=ngh; ++k) {
-  //     for (int j=jl; j<=ju; ++j) {
-  //       for (int i=il; i<=iu; ++i) {
-  //         for (int n=0; n<=nu_; ++n) {
-  //           int m = (n/nang)*nang + RotatingReflectAngle(n % nang, 2);
-  //           (*var_cc)(kl-k,j,i,n) = (*var_cc)(kl+k-1,j,i,m);
-  //         }
-  //       }
-  //     }
-  //   }
-  //   return;
-  // }
-
-  const int& noct = pmy_block_->pnrrad->noct;
-  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
-  const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
-
-  for (int k=1; k<=ngh; ++k) {
-    for (int j=jl; j<=ju; ++j) {
-      for (int i=il; i<=iu; ++i) {
-        for (int ifr=0; ifr<nfreq; ++ifr) {
-          AthenaArray<Real> &var = *var_cc;
-          // Claude: Ghost cell kl-k mirrors interior cell kl+k-1.
-          Real *iri = &var(kl+k-1,j,i,ifr*pmy_block_->pnrrad->nang);
-          Real *iro = &var(kl-k,j,i, ifr*pmy_block_->pnrrad->nang);
-          // Claude: Flip mu_z: swap octants that differ only in the sign of mu_z (0 <->
-          // 4, 1 <-> 5, 2 <-> 6, 3 <-> 7). x3 faces only exist in 3D, where noct == 8,
-          // so these are in range for angle_flag = 0.
-          CopyIntensity(iri, iro, 0, 4, nang_per_oct);
-          CopyIntensity(iri, iro, 1, 5, nang_per_oct);
-          CopyIntensity(iri, iro, 2, 6, nang_per_oct);
-          CopyIntensity(iri, iro, 3, 7, nang_per_oct);
-        }
-      }
-    }
-  }
-  return;
+  Reflect(il, iu, jl, ju, kl,  0, ngh, 0, 2);
 }
 
 //----------------------------------------------------------------------------------------
 //! \fn void RadBoundaryVariable::ReflectOuterX3(
-//          Real time, Real dt, int il, int jl, int ju, int kl, int ku, int ngh)
+//          Real time, Real dt, int il, int iu, int jl, int ju, int ku, int ngh)
 //  \brief REFLECTING boundary conditions, outer x3 boundary
-
 void RadBoundaryVariable::ReflectOuterX3(Real time, Real dt, int il, int iu, int jl,
                                          int ju, int ku, int ngh) {
-  // copy radiation variables into ghost zones,
-  // reflect rays along angles with opposite nx
-  // Claude FIX (angle_flag = 1): use the rotating-grid mirror map instead of octant
-  // swaps (RotatingReflectAngle is in bvals_rad.cpp):
-  // if (pmy_block_->pnrrad->angle_flag == ANGLE_FLAG_COROTATING) {
-  //   int nang = pmy_block_->pnrrad->nang;
-  //   for (int k=1; k<=ngh; ++k) {
-  //     for (int j=jl; j<=ju; ++j) {
-  //       for (int i=il; i<=iu; ++i) {
-  //         for (int n=0; n<=nu_; ++n) {
-  //           int m = (n/nang)*nang + RotatingReflectAngle(n % nang, 2);
-  //           (*var_cc)(ku+k,j,i,n) = (*var_cc)(ku-k+1,j,i,m);
-  //         }
-  //       }
-  //     }
-  //   }
-  //   return;
-  // }
-
-  const int& noct = pmy_block_->pnrrad->noct;
-  int nang_per_oct = pmy_block_->pnrrad->nang/noct; // angles per octant
-  const int& nfreq = pmy_block_->pnrrad->nfreq; // number of frequency bands
-
-  for (int k=1; k<=ngh; ++k) {
-    for (int j=jl; j<=ju; ++j) {
-      for (int i=il; i<=iu; ++i) {
-        for (int ifr=0; ifr<nfreq; ++ifr) {
-          AthenaArray<Real> &var = *var_cc;
-          // Claude: Ghost cell ku+k mirrors interior cell ku-k+1.
-          Real *iri = &var(ku-k+1,j,i,ifr*pmy_block_->pnrrad->nang);
-          Real *iro = &var(ku+k,j,i, ifr*pmy_block_->pnrrad->nang);
-          // Claude: Flip mu_z, as for the inner x3 face.
-          CopyIntensity(iri, iro, 0, 4, nang_per_oct);
-          CopyIntensity(iri, iro, 1, 5, nang_per_oct);
-          CopyIntensity(iri, iro, 2, 6, nang_per_oct);
-          CopyIntensity(iri, iro, 3, 7, nang_per_oct);
-        }
-      }
-    }
-  }
-  return;
+  Reflect(il, iu, jl, ju,  0, ku, ngh, 1, 2);
 }
