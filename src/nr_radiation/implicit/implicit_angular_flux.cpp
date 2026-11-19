@@ -108,6 +108,7 @@ void RadIntegrator::ImplicitPsiFluxCoef(int k, int j, int i, int n_zeta, Real wg
   const int& npsi = prad->npsi;
   // the equation to solve
   //(1+zeta_coef0+zeta_coef1) I + Div F_psi = 0
+
   pco->GetGeometryPsi(prad,k,j,i,n_zeta,g_psi_);
   // g_psi_ =sin zeta * cot \theta sin\psi/r
   // g_psi_(0) is always 0

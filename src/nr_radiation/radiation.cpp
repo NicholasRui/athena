@@ -535,6 +535,10 @@ void NRRadiation::GetNumAnglesRotating(int angle_flag, int ndim, int polar_angle
   }
 
   bool use_spherical_polar = (std::strcmp(coord, "spherical_polar") == 0);
+  // Claude: [BUG] corotating grids are accepted for any coordinate system, but only
+  // spherical_polar overrides GetGeometryZeta / GetGeometryPsi. cartesian and
+  // cylindrical silently get g = 1 (see the [BUG] note in coordinates.cpp). Either
+  // reject them here or implement the overrides.
 
   nang = 0;
 

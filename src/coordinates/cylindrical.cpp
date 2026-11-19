@@ -425,6 +425,9 @@ void Coordinates::CRGradPcCoordTermsDivergence(
 
 //--------------------------------------------------------------------------
 // For radiation angles
+// Claude: [BUG] cylindrical has no GetGeometryZeta / GetGeometryPsi overrides, so a
+// corotating grid (angle_flag = 1) uses the weak defaults g = 1 in coordinates.cpp,
+// which do not balance the curvature of R-hat / phi-hat. See the [BUG] note there.
 void Coordinates::AxisDirection(int *axisx, int *axisy, int *axisz) {
   *axisx = 0;
   *axisy = 1;

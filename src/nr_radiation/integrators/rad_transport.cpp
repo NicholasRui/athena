@@ -439,7 +439,6 @@ void RadIntegrator::CalculateFluxes(AthenaArray<Real> &w,
                                                 ql_psi_,qr_psi_);
               }
 
-              // psi flux
               if (nzeta > 0)
                 pco->GetGeometryPsi(prad,k,j,i,n,g_psi_);
               else

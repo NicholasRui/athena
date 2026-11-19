@@ -466,6 +466,15 @@ void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
     for (int i=0; i<2*npsi; ++i)
       dpsi_f(i) = psi_f(i+1) - psi_f(i);
 
+    // TODO corotating-psi-not-well-balanced:
+    // sinpsi_f is used as the psi-face geometry factor in GetGeometryPsi. Its divided
+    // difference (sinpsi_f(m+1) - sinpsi_f(m))/dpsi_f(m) = cos(psi_v(m)) sinc(dpsi/2),
+    // not the cos(psi_v(m)) that mu_theta uses below. Build the balanced face function
+    // here instead (or alongside), e.g. by the recursion
+    //   s_f(0) = 0,  s_f(m+1) = s_f(m) + dpsi_f(m) * cos(psi_v(m)),
+    // which gives s_f(npsi) = s_f(2*npsi) = 0 by the symmetry of the psi grid. Keep the
+    // exact zeros at 0, pi and 2 pi (Bailey 42346cc2: upwinding uses the sign of g_psi).
+    // END TODO
     // compute face-centered sin(psi)
     // overwrite some distinguished values to avoid roundoff error
     sinpsi_f.NewAthenaArray(2*npsi+1);

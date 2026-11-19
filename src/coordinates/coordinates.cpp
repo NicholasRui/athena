@@ -849,6 +849,19 @@ void __attribute__((weak)) Coordinates::AngularVol(NRRadiation *prad,
   }
 }
 
+// Claude: [BUG] these weak defaults (GetGeometryZeta and both GetGeometryPsi below) set
+// g = 1, which is not a geometric factor. They are what corotating grids
+// (angle_flag = 1) get in every coordinate system except spherical_polar:
+//  - cartesian: the basis does not rotate, so the true angular velocities are 0;
+//    g = 1 spuriously rotates any anisotropic I (uniform isotropic I stays steady
+//    only because a constant g has zero divergence).
+//  - cylindrical: R-hat and phi-hat rotate, so the correct factors are nonzero but
+//    different (d psi/ds = -sinzeta sinpsi / R for psi measured from R-hat in the
+//    R-phi plane; no zeta rotation since z-hat is fixed); g = 1 leaves the
+//    curvature term c mu_R I / R of the spatial flux unbalanced.
+// Either add proper overrides in cartesian.cpp / cylindrical.cpp or reject
+// angle_flag = 1 outside spherical_polar.
+// See shockcompton/notes/COROTATING_PSI_BACKGROUND.md, section 8.
 void __attribute__((weak)) Coordinates::GetGeometryZeta(NRRadiation *prad,
                                         const int k, const int j, const int i,
                                         AthenaArray<Real> &g_zeta) {
@@ -868,6 +881,7 @@ void __attribute__((weak)) Coordinates::GetGeometryPsi(NRRadiation *prad,
 }
 
 // function overwirte in case nzeta = 0
+// Claude: [BUG] same as above: g_psi = 1 is wrong for cartesian and cylindrical.
 void __attribute__((weak)) Coordinates::GetGeometryPsi(NRRadiation *prad,
                                         const int k, const int j, const int i,
                                         AthenaArray<Real> &g_psi) {
