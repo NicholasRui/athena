@@ -861,7 +861,6 @@ void __attribute__((weak)) Coordinates::AngularVol(NRRadiation *prad,
 //    curvature term c mu_R I / R of the spatial flux unbalanced.
 // Either add proper overrides in cartesian.cpp / cylindrical.cpp or reject
 // angle_flag = 1 outside spherical_polar.
-// See shockcompton/notes/COROTATING_PSI_BACKGROUND.md, section 8.
 void __attribute__((weak)) Coordinates::GetGeometryZeta(NRRadiation *prad,
                                         const int k, const int j, const int i,
                                         AthenaArray<Real> &g_zeta) {

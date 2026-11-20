@@ -90,7 +90,7 @@ class NRRadiation {
   AthenaArray<Real> coszeta_v, zeta_v_full, zeta_f_full, dzeta_v_full, dzeta_f_full,
                     coszeta_f, dcoszeta_f;
   AthenaArray<Real> psi_v, psi_f, dpsi_f, psi_v_full, psi_f_full,
-                    dpsi_v_full, dpsi_f_full, sinpsi_f, cot_theta;
+                    dpsi_v_full, dpsi_f_full, sinpsi_f_wb, cot_theta;
 
   // read and validate angle_grid_type (or deprecated angle_flag), nmu, nzeta, npsi,
   // polar_angle into the reference arguments; unused parameters are returned as 0

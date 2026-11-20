@@ -466,24 +466,32 @@ void NRRadiation::AngularGrid(int angle_flag, int nzeta, int npsi) {
     for (int i=0; i<2*npsi; ++i)
       dpsi_f(i) = psi_f(i+1) - psi_f(i);
 
-    // TODO corotating-psi-not-well-balanced:
-    // sinpsi_f is used as the psi-face geometry factor in GetGeometryPsi. Its divided
-    // difference (sinpsi_f(m+1) - sinpsi_f(m))/dpsi_f(m) = cos(psi_v(m)) sinc(dpsi/2),
-    // not the cos(psi_v(m)) that mu_theta uses below. Build the balanced face function
-    // here instead (or alongside), e.g. by the recursion
-    //   s_f(0) = 0,  s_f(m+1) = s_f(m) + dpsi_f(m) * cos(psi_v(m)),
-    // which gives s_f(npsi) = s_f(2*npsi) = 0 by the symmetry of the psi grid. Keep the
-    // exact zeros at 0, pi and 2 pi (Bailey 42346cc2: upwinding uses the sign of g_psi).
-    // END TODO
-    // compute face-centered sin(psi)
-    // overwrite some distinguished values to avoid roundoff error
-    sinpsi_f.NewAthenaArray(2*npsi+1);
+    // compute face-centered "well-balanced" sin(psi), used as the psi-face geometry
+    // factor g_psi in GetGeometryPsi (src/coordinates/spherical_polar.cpp)
+    //
+    // For a uniform, isotropic intensity, the psi flux must EXACTLY cancel the
+    // curvature part of the spatial theta flux, which goes as
+    //   mu_theta = sinzeta_v * cos(psi_v)
+    // This requires the divided difference of the face factor to reproduce cos(psi_v):
+    //   (sinpsi_f_wb(m+1) - sinpsi_f_wb(m)) / dpsi_f(m) = cos(psi_v(m))
+    // Plain sin(psi_f) instead gives cos(psi_v) * sinc(dpsi/2), which leaves a spurious
+    // poleward force ~ (1 - sinc(dpsi/2)) * cot(theta) * P_rad / r
+    // On a uniform grid this is sinpsi_f_wb = sin(psi_f) / sinc(dpsi/2), which
+    // converges to sin(psi_f) as dpsi -> 0
+    sinpsi_f_wb.NewAthenaArray(2*npsi+1);
 
-    for (int i=0; i<2*npsi+1; ++i)
-      sinpsi_f(i) = sin(psi_f(i));
-    sinpsi_f(0)      = 0.0;
-    sinpsi_f(npsi)   = 0.0;
-    sinpsi_f(2*npsi) = 0.0;
+    // integrate cos(psi_v) over [0, PI]
+    sinpsi_f_wb(0) = 0.0;
+    for (int i=0; i<npsi; ++i)
+      sinpsi_f_wb(i+1) = sinpsi_f_wb(i) + dpsi_f(i) * cos(psi_v(i));
+
+    // write some distinguished values and assert antisymmetry upon reflection
+    // across psi = PI to avoid roundoff-error-induced asymmetries
+    // (zero at 0, PI, 2 PI by symmetry of the psi grid; upwinding uses sign of g_psi)
+    sinpsi_f_wb(npsi) = 0.0;
+    sinpsi_f_wb(2*npsi) = 0.0;
+    for (int i=1; i<npsi; ++i)
+      sinpsi_f_wb(2*npsi-i) = -sinpsi_f_wb(i); // (PI, 2 PI)
 
 
     // Write CELL-CENTERED psi values INCLUDING GHOST CELLS

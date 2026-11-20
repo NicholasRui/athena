@@ -782,7 +782,7 @@ void Coordinates::GetGeometryZeta(NRRadiation *prad, const int k, const int j,
 }
 
 // get the geometry factor for psi flux
-// this needs to go throug all the nzeta
+// this needs to go through all the nzeta
 void Coordinates::GetGeometryPsi(NRRadiation *prad, const int k, const int j,
                                     const int i, const int n_zeta,
                                     AthenaArray<Real> &g_psi) {
@@ -802,20 +802,10 @@ void Coordinates::GetGeometryPsi(NRRadiation *prad, const int k, const int j,
       g_psi(n) = 0.0;
     }
   } else {
-    // TODO corotating-psi-not-well-balanced:
-    // MAIN FIX SITE. For isotropic I the discrete psi divergence of this flux is
-    //   c sinzeta cot_theta (sinpsi_f(m+1) - sinpsi_f(m)) / (r dpsi_f(m))
-    // but it must cancel the theta-curvature term of the spatial transport,
-    //   c mu_theta cot_theta / r,   mu_theta = sinzeta cos(psi_v(m)).
-    // With sin(psi) at the faces the difference quotient is cos(psi_v(m)) * sinc(dpsi/2),
-    // leaving a poleward force of eps cot_theta P_rad / r, eps = 1 - sinc(dpsi/2)
-    // (0.0114 for npsi = 6). Replace sinpsi_f(n) here by a face function s_f(n) with
-    //   (s_f(m+1) - s_f(m)) / dpsi_f(m) = cos(psi_v(m))  for every m,  s_f(0) = 0;
-    // on the uniform psi grid s_f(n) = sinpsi_f(n) / sinc(dpsi/2).
-    // See shockcompton/notes/COROTATING_PSI_NOT_WELL_BALANCED.md.
-    // END TODO
+    // sinpsi_f_wb (NOT sin(psi_f)) makes the psi flux exactly cancel the curvature
+    // part of the spatial theta flux for uniform, isotropic I (see AngularGrid)
     for(int n=0; n<2*npsi+1; ++n) {
-      g_psi(n) = sinzeta_v * cottheta * prad->sinpsi_f(n) * inv_radius;
+      g_psi(n) = sinzeta_v * cottheta * prad->sinpsi_f_wb(n) * inv_radius;
     }
   }
 }
@@ -832,12 +822,9 @@ void Coordinates::GetGeometryPsi(NRRadiation *prad, const int k, const int j,
       g_psi(n) = 0.0;
     }
   } else {
-    // TODO corotating-psi-not-well-balanced:
-    // same imbalance as the n_zeta overload above (with sinzeta = 1): replace
-    // sinpsi_f(n) by the balanced face function s_f(n).
-    // END TODO
+    // sinpsi_f_wb: see the overload above
     for(int n=0; n<2*npsi+1; ++n) {
-      g_psi(n) = cottheta * prad->sinpsi_f(n) * inv_radius;
+      g_psi(n) = cottheta * prad->sinpsi_f_wb(n) * inv_radius;
     }
   }
 }
